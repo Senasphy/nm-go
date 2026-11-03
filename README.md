@@ -1,89 +1,141 @@
 # nm-go 📶
 
-A fast, lightweight, and modern Terminal User Interface (TUI) for managing Wi-Fi connections on Linux using `iwd` (iNet wireless daemon) and the Charm ecosystem ([Bubble Tea](https://github.com/charmbracelet/bubbletea) + [Lip Gloss](https://github.com/charmbracelet/lipgloss)).
+A fast, lightweight, and modern Terminal User Interface (TUI) for managing Wi-Fi networks on Linux using `iwd` (iNet wireless daemon) and the Charm ecosystem ([Bubble Tea](https://github.com/charmbracelet/bubbletea) + [Lip Gloss](https://github.com/charmbracelet/lipgloss)).
+
+Inspired by the visual design language of [UniSocket](https://github.com/Senasphy/unisocket) and [btop](https://github.com/aristocratos/btop), `nm-go` blends a high-contrast aesthetic with an ergonomic, keyboard-first workflow.
 
 ---
 
 ## ✨ Features
 
-- **Native `iwd` Service Integration**: Communicates directly with `iwd` over the system D-Bus (`net.connman.iwd`) for blazing-fast real-time status and network discovery.
-- **Available Networks Explorer**:
-  - Live signal meter (`▂▄▆█`) with percent and dBm readings.
-  - Security badges (Open, WPA2/WPA3 Personal PSK, 802.1x Enterprise).
-  - Clear visual indicators for saved (`★ Saved`) and currently connected (`✔ Connected`) networks.
-- **Saved Networks Management**:
-  - View all known networks and last connected timestamps.
-  - Toggle Auto-Connect per network on the fly.
-  - Forget/delete network credentials with confirmation dialog.
-- **Device & Adapter Diagnostics**:
-  - Inspect interface name, MAC address, physical chipset model, vendor, and station operating state.
-  - Toggle Wi-Fi radio power on/off with a single keypress.
-- **Seamless Connecting**:
-  - Direct 1-press connect to known/saved or open networks.
-  - Built-in secure passphrase prompt modal for password-protected networks (with show/hide password toggle).
-- **Search & Filter**: Press `/` to filter networks by SSID.
-- **Auto-Refresh**: Live updates in the background every 3 seconds to keep signal levels and states current.
+- **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus (`net.connman.iwd`) via `ObjectManager` for real-time status and network discovery.
+- **Tabbed Network Explorer**:
+  - **Available Networks**: In-range scan results with btop-style signal meters (`■■■■■··· 65%`), security badges (`WPA2/3`, `Open`, `802.1x`), and status tags (`✔ Connected`, `★ Saved`, `● Open`).
+  - **Saved Networks**: Stored network profiles, auto-connect status toggles, and relative last-connected timestamps.
+  - **Device Diagnostics**: Hardware interface details (`wlan0`), MAC address, operational mode, station state, and physical chipset details (`phy0`, vendor, driver).
+- **Interactive Themes**:
+  - Includes 10 built-in terminal themes (*Tokyo Night*, *Catppuccin Mocha*, *Gruvbox Dark*, *Dracula*, *Nord*, *One Dark*, *Rosé Pine*, *Monokai Pro*, *Cyberpunk Neon*, and *Retro*).
+  - Press <kbd>t</kbd> to open an interactive theme switcher with live preview, or start with `-theme <name>`.
+- **UniSocket-Inspired Dual Bottom Deck**:
+  - **Commands Card**: Inverted keycap badges for rapid command discovery.
+  - **Monitor Card**: Live feed pulse indicator (`● Live feed (3s)`), active interface info, and connection status.
+- **Dedicated Search Box**:
+  - Press <kbd>/</kbd> to open an interactive filter input matching SSIDs in real time.
+- **Passphrase Modal**:
+  - Secure modal dialog with asterisk masking and show/hide password toggle (<kbd>Ctrl+R</kbd>).
+- **Hardware Radio Control**:
+  - Toggle Wi-Fi radio power on/off with a single keypress (<kbd>p</kbd>).
+
+---
+
+## 🎨 Themes Showcase
+
+`nm-go` supports a wide array of popular palettes:
+
+| Theme ID | Name | Style Description |
+| :--- | :--- | :--- |
+| `tokyonight` *(default)* | **Tokyo Night** | Downtown Tokyo neon blue and amber accents |
+| `catppuccin` | **Catppuccin Mocha** | Soothing pastel dark palette with lavender highlight |
+| `gruvbox` | **Gruvbox Dark** | Warm retro groove with earthy orange and yellow tones |
+| `dracula` | **Dracula** | Iconic gothic dark theme with vibrant purple and green |
+| `nord` | **Nord** | Arctic, north-bluish clean aesthetic |
+| `onedark` | **One Dark** | Atom and Neovim balanced classic |
+| `rose-pine` | **Rosé Pine** | Soho vibes, pine tones, and cozy aesthetic |
+| `monokai` | **Monokai Pro** | High-contrast developer theme with bright yellow highlights |
+| `cyberpunk` | **Cyberpunk Neon** | Synthwave neon pink and cyan glow |
+| `default` | **Default Retro** | Classic cyan and amber terminal palette |
+
+You can switch themes interactively by pressing <kbd>t</kbd> anytime inside the TUI, or launch with:
+
+```bash
+nm-go -theme gruvbox
+```
 
 ---
 
 ## 🛠️ Requirements
 
-- **Linux** with `iwd` active (`systemctl is-active iwd`)
+- **Linux** with `iwd` daemon active (`systemctl is-active iwd`)
 - **Go** 1.21 or later
-- Optional: `iwctl` (used for initial passphrase provisioning)
+- Optional: `iwctl` (used for initial WPA-PSK passphrase provisioning)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation
 
-### Build and Run
+### 1. Install With Go
 
 ```bash
-# Clone or navigate to the directory
+go install github.com/Senasphy/nm-go@latest
+```
+
+### 2. Build From Source
+
+```bash
+git clone https://github.com/Senasphy/nm-go.git
 cd nm-go
-
-# Build the executable
+go mod tidy
 go build -o nm-go .
-
-# Run the TUI
-./nm-go
 ```
 
-Or run directly without building a binary:
+Move the binary to your `PATH` for system-wide access:
 
 ```bash
-go run .
+sudo mv nm-go /usr/local/bin/
 ```
 
 ---
 
-## ⌨️ Keybindings
+## 🕹️ Usage & Keybindings
+
+Launch `nm-go`:
+
+```bash
+nm-go
+```
+
+### Command-Line Flags
+
+```text
+Usage of nm-go:
+  -theme string
+    	Launch with specific theme (e.g. tokyonight, catppuccin, gruvbox, dracula, nord, onedark, rose-pine, monokai, cyberpunk, default) (default "tokyonight")
+  -version
+    	Print version and exit
+  -help
+    	Print help and exit
+```
+
+### Keyboard Shortcuts
 
 | Key | Action |
 | :--- | :--- |
-| `Tab` / `Shift+Tab` | Switch tabs (Available Networks / Saved Networks / Device Info) |
-| `↑` / `k` , `↓` / `j` | Navigate list |
-| `Enter` / `c` | Connect to selected network (prompts for passphrase if needed) |
-| `d` | Disconnect from current network |
-| `s` / `r` | Trigger a fresh Wi-Fi scan / refresh |
-| `f` / `x` | Forget / remove saved network credentials |
-| `a` | Toggle auto-connect for saved network |
-| `p` | Toggle Wi-Fi radio power on/off |
-| `/` | Search & filter networks by SSID |
-| `Esc` | Clear filter / close modal |
-| `?` | Toggle help modal |
-| `q` / `Ctrl+C` | Quit |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Switch tabs (*Available* / *Saved* / *Device Info*) |
+| <kbd>↑</kbd> / <kbd>k</kbd> , <kbd>↓</kbd> / <kbd>j</kbd> | Navigate networks / options |
+| <kbd>Enter</kbd> / <kbd>c</kbd> | Connect to selected network (prompts for passphrase if needed) |
+| <kbd>d</kbd> | Disconnect active network |
+| <kbd>s</kbd> / <kbd>r</kbd> | Trigger a fresh Wi-Fi scan / refresh |
+| <kbd>f</kbd> / <kbd>x</kbd> | Forget saved network credentials (with confirmation) |
+| <kbd>a</kbd> | Toggle auto-connect on saved network |
+| <kbd>p</kbd> | Toggle Wi-Fi power (radio on/off) |
+| <kbd>/</kbd> | Open search box to filter networks by SSID |
+| <kbd>t</kbd> | Open interactive theme switcher |
+| <kbd>?</kbd> | Toggle help & command reference |
+| <kbd>Esc</kbd> | Close modal / clear search / cancel action |
+| <kbd>q</kbd> / <kbd>Ctrl+C</kbd> | Quit nm-go |
 
 ---
 
-## 📁 Architecture
+## 🏗️ Architecture
 
-The project is structured to keep code clean, modular, and unencumbered:
+`nm-go` uses a clean separation of concerns between D-Bus IPC and terminal presentation:
 
 ```text
 nm-go/
-├── main.go               # Application entry point, flag parsing & D-Bus check
+├── main.go               # CLI entrypoint, flag parsing, D-Bus service check
 ├── internal/
+│   ├── theme/
+│   │   └── theme.go       # 10 curated themes & dynamic Lip Gloss style generators
 │   ├── iwd/
 │   │   ├── client.go      # IWD service layer: D-Bus ObjectManager & Station methods
 │   │   ├── models.go      # Device, Station, Network, and KnownNetwork types
@@ -91,12 +143,12 @@ nm-go/
 │   └── ui/
 │       ├── model.go       # Bubble Tea state model & initialization
 │       ├── keys.go        # Keybinding definitions
-│       ├── styles.go      # Lip Gloss themes, colors, and layout styles
+│       ├── styles.go      # Signal meters, tabs, and keycap badges
 │       ├── commands.go    # Asynchronous Bubble Tea commands (D-Bus dispatchers)
-│       ├── update.go      # Key handling, navigation, and state transitions
-│       ├── modal.go       # Password prompt and confirmation overlays
-│       ├── view.go        # Full TUI layout rendering
-│       └── update_test.go # Unit tests for filtering and navigation bounds
+│       ├── update.go      # Event loop, keyboard handling & state transitions
+│       ├── modal.go       # Password prompt, confirmation dialogs & theme switcher
+│       ├── view.go        # Full TUI layout rendering (UniSocket/btop design)
+│       └── update_test.go # Unit tests for filtering & cursor boundary clamping
 └── README.md
 ```
 
@@ -104,4 +156,4 @@ nm-go/
 
 ## 📄 License
 
-MIT
+MIT © [Senasphy](https://github.com/Senasphy)

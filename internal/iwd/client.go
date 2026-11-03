@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	IwdBusName       = "net.connman.iwd"
+	IwdBusName        = "net.connman.iwd"
 	ObjectManagerPath = "/"
-	InterfaceManager = "org.freedesktop.DBus.ObjectManager"
+	InterfaceManager  = "org.freedesktop.DBus.ObjectManager"
 
 	IfaceAdapter      = "net.connman.iwd.Adapter"
 	IfaceDevice       = "net.connman.iwd.Device"
@@ -127,6 +127,17 @@ func (c *Client) GetStation(devPath dbus.ObjectPath) (*Station, error) {
 		station.ConnectedNetwork = connNet
 	}
 
+	// Sync state with system network manager (e.g. NetworkManager)
+	devProps := ifaces[IfaceDevice]
+	devName := getString(devProps, "Name")
+	if devName == "" {
+		devName = "wlan0"
+	}
+
+	if _, isActive := GetSystemActiveWirelessConnection(devName); isActive {
+		station.State = "connected"
+	}
+
 	return station, nil
 }
 
@@ -142,9 +153,16 @@ func (c *Client) GetNetworks(stationPath dbus.ObjectPath) ([]Network, error) {
 	var ordered []networkSignalRaw
 	err := stationObj.Call(IfaceStation+".GetOrderedNetworks", 0).Store(&ordered)
 	if err != nil {
-		// Fallback: If GetOrderedNetworks fails or returns empty, inspect managed objects directly
 		return c.getNetworksFromObjects(stationPath)
 	}
+
+	systemSaved := GetSystemSavedConnections()
+	systemSavedMap := make(map[string]bool, len(systemSaved))
+	for _, s := range systemSaved {
+		systemSavedMap[s] = true
+	}
+
+	activeSSID, isActive := GetSystemActiveWirelessConnection("wlan0")
 
 	var networks []Network
 	for _, item := range ordered {
@@ -158,12 +176,20 @@ func (c *Client) GetNetworks(stationPath dbus.ObjectPath) ([]Network, error) {
 		connVar, _ := netObj.GetProperty(IfaceNetwork + ".Connected")
 		knownVar, _ := netObj.GetProperty(IfaceNetwork + ".KnownNetwork")
 
+		netName := variantString(nameVar)
+		isConnected := variantBool(connVar)
+		if isActive && netName == activeSSID {
+			isConnected = true
+		}
+
+		isKnown := (knownVar.Value() != nil) || systemSavedMap[netName]
+
 		net := Network{
 			Path:      item.Path,
-			Name:      variantString(nameVar),
+			Name:      netName,
 			Type:      variantString(typeVar),
-			Connected: variantBool(connVar),
-			Known:     knownVar.Value() != nil,
+			Connected: isConnected,
+			Known:     isKnown,
 			Signal:    item.Signal,
 		}
 		networks = append(networks, net)
@@ -178,6 +204,13 @@ func (c *Client) getNetworksFromObjects(stationPath dbus.ObjectPath) ([]Network,
 		return nil, err
 	}
 
+	systemSaved := GetSystemSavedConnections()
+	systemSavedMap := make(map[string]bool, len(systemSaved))
+	for _, s := range systemSaved {
+		systemSavedMap[s] = true
+	}
+	activeSSID, isActive := GetSystemActiveWirelessConnection("wlan0")
+
 	var networks []Network
 	for path, ifaces := range objects {
 		if netProps, ok := ifaces[IfaceNetwork]; ok {
@@ -188,14 +221,22 @@ func (c *Client) getNetworksFromObjects(stationPath dbus.ObjectPath) ([]Network,
 				}
 			}
 
+			netName := getString(netProps, "Name")
+			isConnected := getBool(netProps, "Connected")
+			if isActive && netName == activeSSID {
+				isConnected = true
+			}
+
 			_, hasKnown := netProps["KnownNetwork"]
+			isKnown := hasKnown || systemSavedMap[netName]
+
 			net := Network{
 				Path:      path,
-				Name:      getString(netProps, "Name"),
+				Name:      netName,
 				Type:      getString(netProps, "Type"),
-				Connected: getBool(netProps, "Connected"),
-				Known:     hasKnown,
-				Signal:    -7000, // default placeholder if no signal reading
+				Connected: isConnected,
+				Known:     isKnown,
+				Signal:    -7000,
 			}
 			networks = append(networks, net)
 		}
@@ -203,7 +244,7 @@ func (c *Client) getNetworksFromObjects(stationPath dbus.ObjectPath) ([]Network,
 	return networks, nil
 }
 
-// GetKnownNetworks returns all saved/known networks
+// GetKnownNetworks returns all saved/known networks from iwd and system services
 func (c *Client) GetKnownNetworks() ([]KnownNetwork, error) {
 	objects, err := c.GetManagedObjects()
 	if err != nil {
@@ -211,6 +252,8 @@ func (c *Client) GetKnownNetworks() ([]KnownNetwork, error) {
 	}
 
 	var known []KnownNetwork
+	knownMap := make(map[string]bool)
+
 	for path, ifaces := range objects {
 		if knProps, ok := ifaces[IfaceKnownNetwork]; ok {
 			kn := KnownNetwork{
@@ -222,11 +265,23 @@ func (c *Client) GetKnownNetworks() ([]KnownNetwork, error) {
 				LastConnectedTime: getString(knProps, "LastConnectedTime"),
 			}
 			known = append(known, kn)
+			knownMap[kn.Name] = true
+		}
+	}
+
+	// Merge system-saved connection profiles
+	for _, s := range GetSystemSavedConnections() {
+		if !knownMap[s] {
+			known = append(known, KnownNetwork{
+				Name:        s,
+				Type:        "psk",
+				AutoConnect: true,
+			})
+			knownMap[s] = true
 		}
 	}
 
 	sort.Slice(known, func(i, j int) bool {
-		// Sort by most recently connected first
 		if known[i].LastConnectedTime != known[j].LastConnectedTime {
 			return known[i].LastConnectedTime > known[j].LastConnectedTime
 		}
@@ -241,23 +296,32 @@ func (c *Client) Scan(stationPath dbus.ObjectPath) error {
 	stationObj := c.conn.Object(IwdBusName, stationPath)
 	call := stationObj.Call(IfaceStation+".Scan", 0)
 	if call.Err != nil {
-		// Scan might return OperationNotSupported or Busy if a scan is already running; handle gracefully
 		return call.Err
 	}
 	return nil
 }
 
-// Connect attempts to connect to a known or open network via D-Bus
-func (c *Client) Connect(netPath dbus.ObjectPath) error {
-	netObj := c.conn.Object(IwdBusName, netPath)
-	call := netObj.Call(IfaceNetwork+".Connect", 0)
-	if call.Err != nil {
-		return call.Err
+// Connect attempts to connect to a known or open network
+func (c *Client) Connect(netPath dbus.ObjectPath, ssid string) error {
+	if netPath != "" {
+		netObj := c.conn.Object(IwdBusName, netPath)
+		call := netObj.Call(IfaceNetwork+".Connect", 0)
+		if call.Err == nil {
+			return nil
+		}
 	}
-	return nil
+
+	// If iwd connect didn't succeed or profile is managed by system connection manager:
+	if ssid != "" {
+		if err := ConnectSystemSaved(ssid); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("failed to connect to %s", ssid)
 }
 
-// ConnectWithPassphrase uses iwctl to connect with a specified passphrase for secured networks
+// ConnectWithPassphrase provisions credentials and connects
 func (c *Client) ConnectWithPassphrase(deviceName, ssid, passphrase string) error {
 	var cmd *exec.Cmd
 	if passphrase == "" {
@@ -267,44 +331,75 @@ func (c *Client) ConnectWithPassphrase(deviceName, ssid, passphrase string) erro
 	}
 
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		outputMsg := strings.TrimSpace(string(out))
-		if outputMsg != "" {
-			return fmt.Errorf("%s", outputMsg)
+	if err == nil {
+		return nil
+	}
+
+	// Fallback to nmcli if iwctl reports error
+	if passphrase != "" {
+		cmdNM := exec.Command("nmcli", "dev", "wifi", "connect", ssid, "password", passphrase)
+		if outNM, errNM := cmdNM.CombinedOutput(); errNM == nil {
+			return nil
+		} else {
+			outputMsg := strings.TrimSpace(string(outNM))
+			if outputMsg != "" {
+				return fmt.Errorf("%s", outputMsg)
+			}
 		}
-		return err
+	}
+
+	outputMsg := strings.TrimSpace(string(out))
+	if outputMsg != "" {
+		return fmt.Errorf("%s", outputMsg)
+	}
+	return err
+}
+
+// Disconnect disconnects the station from the active network
+func (c *Client) Disconnect(stationPath dbus.ObjectPath) error {
+	stationObj := c.conn.Object(IwdBusName, stationPath)
+	_ = stationObj.Call(IfaceStation+".Disconnect", 0)
+	_ = DisconnectSystem("wlan0")
+	return nil
+}
+
+// ForgetKnownNetwork removes stored credentials for a network
+func (c *Client) ForgetKnownNetwork(knPath dbus.ObjectPath, name string) error {
+	if knPath != "" {
+		knObj := c.conn.Object(IwdBusName, knPath)
+		_ = knObj.Call(IfaceKnownNetwork+".Forget", 0)
+	}
+	// Also delete from NetworkManager if present
+	if name != "" {
+		_ = exec.Command("nmcli", "connection", "delete", name).Run()
 	}
 	return nil
 }
 
-// Disconnect disconnects the station from the currently connected network
-func (c *Client) Disconnect(stationPath dbus.ObjectPath) error {
-	stationObj := c.conn.Object(IwdBusName, stationPath)
-	call := stationObj.Call(IfaceStation+".Disconnect", 0)
-	return call.Err
-}
-
-// ForgetKnownNetwork removes stored credentials for a network
-func (c *Client) ForgetKnownNetwork(knPath dbus.ObjectPath) error {
-	knObj := c.conn.Object(IwdBusName, knPath)
-	call := knObj.Call(IfaceKnownNetwork+".Forget", 0)
-	return call.Err
-}
-
 // SetAutoConnect toggles the auto-connect flag for a known network
 func (c *Client) SetAutoConnect(knPath dbus.ObjectPath, autoConnect bool) error {
-	knObj := c.conn.Object(IwdBusName, knPath)
-	err := knObj.SetProperty(IfaceKnownNetwork+".AutoConnect", dbus.MakeVariant(autoConnect))
-	return err
+	if knPath != "" {
+		knObj := c.conn.Object(IwdBusName, knPath)
+		return knObj.SetProperty(IfaceKnownNetwork+".AutoConnect", dbus.MakeVariant(autoConnect))
+	}
+	return nil
 }
 
-// ToggleDevicePower turns Wi-Fi radio on or off for the given device
+// ToggleDevicePower turns Wi-Fi radio on or off
 func (c *Client) ToggleDevicePower(devPath dbus.ObjectPath, powered bool) error {
 	devObj := c.conn.Object(IwdBusName, devPath)
-	return devObj.SetProperty(IfaceDevice+".Powered", dbus.MakeVariant(powered))
+	err := devObj.SetProperty(IfaceDevice+".Powered", dbus.MakeVariant(powered))
+	if err != nil {
+		// Fallback to nmcli radio
+		state := "off"
+		if powered {
+			state = "on"
+		}
+		_ = exec.Command("nmcli", "radio", "wifi", state).Run()
+	}
+	return nil
 }
 
-// Helper functions for safely reading D-Bus variants
 func getString(m map[string]dbus.Variant, key string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.Value().(string); ok {
@@ -337,7 +432,7 @@ func variantBool(v dbus.Variant) bool {
 	return false
 }
 
-// CheckIwdService returns true if iwd is active on the system
+// CheckIwdService returns true if iwd or NetworkManager is active on the system
 func CheckIwdService() error {
 	conn, err := dbus.SystemBus()
 	if err != nil {
@@ -352,9 +447,9 @@ func CheckIwdService() error {
 	}
 
 	for _, name := range names {
-		if name == IwdBusName {
+		if name == IwdBusName || name == "org.freedesktop.NetworkManager" {
 			return nil
 		}
 	}
-	return errors.New("iwd daemon (net.connman.iwd) is not running on D-Bus")
+	return errors.New("wireless network service is not running on D-Bus")
 }

@@ -5,16 +5,19 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"nm-go/internal/theme"
 )
 
 var pageStyle = lipgloss.NewStyle().Padding(1, 2)
+
+const themeBoxWidth = 26
 
 func (m Model) View() string {
 	if m.width == 0 {
 		return "Initializing nm-go..."
 	}
 
-	// Active modal overlays
+	// Active modal overlays (only for forms like Password / Confirm / Help)
 	if m.modal != ModalNone {
 		switch m.modal {
 		case ModalPassword:
@@ -27,8 +30,6 @@ func (m Model) View() string {
 			return pageStyle.Render(renderConfirmForgetModal(name, m.currentTheme, m.width-4))
 		case ModalHelp:
 			return pageStyle.Render(renderHelpModal(m.currentTheme, m.width-4))
-		case ModalThemePicker:
-			return pageStyle.Render(renderThemePickerModal(m.currentTheme, m.themePickerIndex, m.width-4))
 		}
 	}
 
@@ -37,27 +38,35 @@ func (m Model) View() string {
 		totalWidth = 50
 	}
 
-	// 1. Header Banner Pill & Tabs
+	// 1. Header Banner Pill & Live Connection Status
 	headerBanner := m.renderHeaderBanner()
 	tabsRow := m.renderTabs()
 
-	// 2. Main Content Container
-	contentView := m.renderMainTable(totalWidth)
+	// 2. Main Section: Table (and optional side-by-side Theme Switcher)
+	var mainSection string
+	if m.isThemePicker && totalWidth >= 75 {
+		tableW := totalWidth - themeBoxWidth - 2
+		tableView := m.renderMainTable(tableW)
+		themeBox := m.renderSideThemePicker(themeBoxWidth)
+		mainSection = lipgloss.JoinHorizontal(lipgloss.Top, tableView, "  ", themeBox)
+	} else {
+		mainSection = m.renderMainTable(totalWidth)
+	}
 
-	// 3. Optional Search Box (UniSocket-style)
+	// 3. Optional Search Box
 	var searchBox string
 	if m.filtering || m.filterInput.Value() != "" {
 		searchBox = "\n" + m.renderSearchBox(totalWidth)
 	}
 
-	// 4. Bottom Deck (Commands Box + Monitor Box)
-	bottomDeck := "\n" + m.renderBottomDeck(totalWidth)
+	// 4. Bottom Commands Deck (Clean, single full-width card - no cluttered monitor box)
+	bottomDeck := "\n" + m.renderCommandsCard(totalWidth)
 
 	fullContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		headerBanner,
 		tabsRow,
-		contentView,
+		mainSection,
 		searchBox,
 		bottomDeck,
 	)
@@ -74,7 +83,8 @@ func (m Model) renderHeaderBanner() string {
 	} else if m.isConnecting {
 		stateText = m.spinner.View() + " " + m.busyAction
 	} else if m.activeNetwork != nil {
-		stateText = fmt.Sprintf("Connected: %s (%d%%)", m.activeNetwork.Name, m.activeNetwork.SignalPercent())
+		pct := m.activeNetwork.SignalPercent()
+		stateText = fmt.Sprintf("Connected: %s (%d%%)", m.activeNetwork.Name, pct)
 	} else {
 		stateText = "Disconnected"
 	}
@@ -116,13 +126,13 @@ func (m Model) renderMainTable(totalWidth int) string {
 func (m Model) renderAvailableTab(innerW int) string {
 	networks := m.getFilteredNetworks()
 
-	colWName := 30
-	colWSec := 20
-	colWSig := 26
+	colWName := 28
+	colWSec := 18
+	colWSig := 24
 	colWStatus := 14
 
-	if innerW > 95 {
-		colWName = 36
+	if innerW > 85 {
+		colWName = 34
 		colWSec = 22
 		colWSig = 28
 		colWStatus = innerW - colWName - colWSec - colWSig - 6
@@ -148,7 +158,7 @@ func (m Model) renderAvailableTab(innerW int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, header, emptyBlock)
 	}
 
-	maxVisible := m.height - 15
+	maxVisible := m.height - 14
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -217,13 +227,13 @@ func (m Model) renderAvailableTab(innerW int) string {
 func (m Model) renderSavedTab(innerW int) string {
 	known := m.getFilteredKnownNetworks()
 
-	colWName := 32
-	colWSec := 20
+	colWName := 30
+	colWSec := 18
 	colWAuto := 16
-	colWLast := 20
+	colWLast := 18
 
-	if innerW > 95 {
-		colWName = 38
+	if innerW > 85 {
+		colWName = 36
 		colWSec = 22
 		colWAuto = 18
 		colWLast = innerW - colWName - colWSec - colWAuto - 6
@@ -249,7 +259,7 @@ func (m Model) renderSavedTab(innerW int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, header, emptyBlock)
 	}
 
-	maxVisible := m.height - 15
+	maxVisible := m.height - 14
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -358,6 +368,49 @@ func (m Model) renderDetailsTab(innerW int) string {
 	return lipgloss.NewStyle().Padding(1, 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
+// renderSideThemePicker renders a narrow, clean side box without descriptions
+func (m Model) renderSideThemePicker(width int) string {
+	card := m.currentTheme.CardStyle().Width(width - 2)
+
+	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Theme")
+
+	themes := theme.List()
+	cursorStyle := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight)
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Success)
+	itemStyle := lipgloss.NewStyle().Foreground(m.currentTheme.Text)
+
+	items := make([]string, len(themes))
+	for i, t := range themes {
+		cursor := "  "
+		if i == m.themePickerIndex {
+			cursor = "▸ "
+		}
+
+		indicator := "  "
+		if t.ID == m.currentTheme.ID {
+			indicator = "✓ "
+		}
+
+		nameStr := t.Name
+		if len(nameStr) > width-8 {
+			nameStr = nameStr[:width-10] + ".."
+		}
+
+		if i == m.themePickerIndex {
+			items[i] = cursorStyle.Render(cursor) + selectedStyle.Render(indicator) + cursorStyle.Render(nameStr)
+		} else {
+			items[i] = itemStyle.Render(cursor) + selectedStyle.Render(indicator) + itemStyle.Render(nameStr)
+		}
+	}
+
+	hint := lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render("[Enter/t] Close")
+
+	content := append([]string{title, ""}, items...)
+	content = append(content, "", hint)
+
+	return card.Render(lipgloss.JoinVertical(lipgloss.Left, content...))
+}
+
 func (m Model) renderSearchBox(totalWidth int) string {
 	card := m.currentTheme.CardStyle().Width(totalWidth - 2)
 
@@ -370,21 +423,9 @@ func (m Model) renderSearchBox(totalWidth int) string {
 	return card.Render(lipgloss.JoinVertical(lipgloss.Left, title, inputLine, hints))
 }
 
-func (m Model) renderBottomDeck(totalWidth int) string {
-	if totalWidth >= 78 {
-		rightWidth := 34
-		leftWidth := totalWidth - rightWidth - 2
-		leftCard := m.renderCommandsCard(leftWidth)
-		rightCard := m.renderMonitorCard(rightWidth)
-		return lipgloss.JoinHorizontal(lipgloss.Top, leftCard, "  ", rightCard)
-	}
-
-	// Narrow fallback
-	return m.renderCommandsCard(totalWidth)
-}
-
+// renderCommandsCard renders the full-width commands card without the cluttered monitor box
 func (m Model) renderCommandsCard(width int) string {
-	card := m.currentTheme.CardStyle().Width(width - 2).Height(4)
+	card := m.currentTheme.CardStyle().Width(width - 2)
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Commands")
 
@@ -392,15 +433,12 @@ func (m Model) renderCommandsCard(width int) string {
 		return RenderCommandBadge(m.currentTheme, k, a)
 	}
 
-	row1 := fmt.Sprintf("%s   %s   %s   %s   %s",
+	row1 := fmt.Sprintf("%s   %s   %s   %s   %s   %s   %s   %s   %s   %s",
 		b("↑/↓", "Nav"),
 		b("Enter", "Connect"),
 		b("d", "Disconnect"),
 		b("s", "Scan"),
 		b("f", "Forget"),
-	)
-
-	row2 := fmt.Sprintf("%s   %s   %s   %s   %s",
 		b("p", "Power"),
 		b("/", "Search"),
 		b("t", "Theme"),
@@ -408,44 +446,16 @@ func (m Model) renderCommandsCard(width int) string {
 		b("q", "Quit"),
 	)
 
-	tip := lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(
-		"Tip: Press [t] to switch theme • [Tab] to switch view • [a] toggle autoconnect",
-	)
-
-	return card.Render(lipgloss.JoinVertical(lipgloss.Left, title, row1, row2, tip))
-}
-
-func (m Model) renderMonitorCard(width int) string {
-	card := m.currentTheme.CardStyle().Width(width - 2).Height(4)
-
-	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Monitor")
-
-	labelStyle := lipgloss.NewStyle().Foreground(m.currentTheme.Muted)
-	valStyle := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Text)
-
-	themeName := m.currentTheme.Name
-	line1 := labelStyle.Render("Theme: ") + valStyle.Render(themeName)
-
-	devName := "wlan0"
-	if len(m.devices) > 0 {
-		devName = m.devices[0].Name
-	}
-	stateStr := "Disconnected"
-	if m.activeNetwork != nil {
-		stateStr = m.activeNetwork.Name
-	}
-	line2 := labelStyle.Render("Device: ") + valStyle.Render(devName) +
-		labelStyle.Render(" • ") +
-		lipgloss.NewStyle().Foreground(m.currentTheme.Status).Render(stateStr)
-
-	var line3 string
+	var statusLine string
 	if m.notification != nil && time.Now().Before(m.notification.Expires) {
-		line3 = lipgloss.NewStyle().Foreground(m.currentTheme.Highlight).Bold(true).Render("● " + m.notification.Message)
+		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Status).Bold(true).Render("● " + m.notification.Message)
 	} else if m.busyAction != "" {
-		line3 = lipgloss.NewStyle().Foreground(m.currentTheme.Warning).Bold(true).Render("● " + m.busyAction)
+		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Warning).Bold(true).Render("● " + m.busyAction)
 	} else {
-		line3 = lipgloss.NewStyle().Foreground(m.currentTheme.Success).Render("● Live feed (3s)")
+		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(
+			"Tip: Press [t] to toggle theme panel • [Tab] to switch view • [a] autoconnect",
+		)
 	}
 
-	return card.Render(lipgloss.JoinVertical(lipgloss.Left, title, line1, line2, line3))
+	return card.Render(lipgloss.JoinVertical(lipgloss.Left, title, row1, statusLine))
 }

@@ -19,11 +19,9 @@ func fetchDataCmd(client *iwd.Client, background bool) tea.Cmd {
 			return FetchDataMsg{Devices: devices}
 		}
 
-		// Use the first wireless device
 		dev := devices[0]
 		station, err := client.GetStation(dev.Path)
 		if err != nil {
-			// Might not be in station mode yet or powered off
 			station = &iwd.Station{
 				Path:  dev.Path,
 				State: "unknown",
@@ -45,7 +43,6 @@ func fetchDataCmd(client *iwd.Client, background bool) tea.Cmd {
 func scanCmd(client *iwd.Client, stationPath dbus.ObjectPath) tea.Cmd {
 	return func() tea.Msg {
 		err := client.Scan(stationPath)
-		// Small delay to allow scan results to populate in iwd
 		time.Sleep(1200 * time.Millisecond)
 		return ScanFinishedMsg{Err: err}
 	}
@@ -53,7 +50,7 @@ func scanCmd(client *iwd.Client, stationPath dbus.ObjectPath) tea.Cmd {
 
 func connectDirectCmd(client *iwd.Client, netPath dbus.ObjectPath, ssid string) tea.Cmd {
 	return func() tea.Msg {
-		err := client.Connect(netPath)
+		err := client.Connect(netPath, ssid)
 		return ConnectResultMsg{SSID: ssid, Err: err}
 	}
 }
@@ -74,7 +71,7 @@ func disconnectCmd(client *iwd.Client, stationPath dbus.ObjectPath) tea.Cmd {
 
 func forgetCmd(client *iwd.Client, knPath dbus.ObjectPath, name string) tea.Cmd {
 	return func() tea.Msg {
-		err := client.ForgetKnownNetwork(knPath)
+		err := client.ForgetKnownNetwork(knPath, name)
 		return ForgetResultMsg{Name: name, Err: err}
 	}
 }

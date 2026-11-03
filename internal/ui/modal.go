@@ -16,7 +16,6 @@ const (
 	ModalPassword
 	ModalConfirmForget
 	ModalHelp
-	ModalThemePicker
 )
 
 type PasswordModal struct {
@@ -128,7 +127,7 @@ func renderHelpModal(th theme.Theme, width int) string {
 
 	keyPairs := [][]string{
 		{"Tab / Shift+Tab", "Switch tabs (Available / Saved / Info)"},
-		{"↑ / k , ↓ / j", "Navigate network list"},
+		{"↑ / k , ↓ / j", "Navigate network list / themes"},
 		{"Enter / c", "Connect to selected network"},
 		{"d", "Disconnect active Wi-Fi network"},
 		{"s / r", "Scan & refresh Wi-Fi networks"},
@@ -136,7 +135,7 @@ func renderHelpModal(th theme.Theme, width int) string {
 		{"a", "Toggle auto-connect for saved network"},
 		{"p", "Toggle Wi-Fi radio power on/off"},
 		{"/", "Search & filter networks by SSID"},
-		{"t", "Open interactive theme switcher"},
+		{"t", "Toggle side-by-side theme switcher"},
 		{"Esc", "Cancel / close dialog / clear filter"},
 		{"?", "Toggle this help screen"},
 		{"q / Ctrl+C", "Quit nm-go"},
@@ -159,58 +158,4 @@ func renderHelpModal(th theme.Theme, width int) string {
 
 	modalBox := th.ModalStyle().Width(boxWidth).Render(body)
 	return lipgloss.Place(width, 17, lipgloss.Center, lipgloss.Center, modalBox)
-}
-
-func renderThemePickerModal(th theme.Theme, selectedIdx int, width int) string {
-	themes := theme.List()
-	title := lipgloss.NewStyle().Bold(true).Foreground(th.Highlight).Render("🎨 Choose Theme")
-
-	cursorStyle := lipgloss.NewStyle().Bold(true).Foreground(th.Highlight)
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(th.Success)
-	itemStyle := lipgloss.NewStyle().Foreground(th.Text)
-	descStyle := lipgloss.NewStyle().Foreground(th.Muted)
-
-	items := make([]string, len(themes))
-	for i, t := range themes {
-		cursor := "  "
-		if i == selectedIdx {
-			cursor = "▸ "
-		}
-
-		indicator := "  "
-		if t.ID == th.ID {
-			indicator = "✓ "
-		}
-
-		nameCol := fmt.Sprintf("%-18s", t.Name)
-		if i == selectedIdx {
-			items[i] = cursorStyle.Render(cursor) + selectedStyle.Render(indicator) + cursorStyle.Render(nameCol) + " " + descStyle.Render(t.Description)
-		} else {
-			items[i] = itemStyle.Render(cursor) + selectedStyle.Render(indicator) + itemStyle.Render(nameCol) + " " + descStyle.Render(t.Description)
-		}
-	}
-
-	buttons := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		lipgloss.NewStyle().Bold(true).Foreground(th.Success).Render("[Enter] Apply"),
-		"    ",
-		lipgloss.NewStyle().Foreground(th.Muted).Render("[Esc] Cancel"),
-	)
-
-	body := lipgloss.JoinVertical(
-		lipgloss.Left,
-		title,
-		"",
-		lipgloss.JoinVertical(lipgloss.Left, items...),
-		"",
-		buttons,
-	)
-
-	boxWidth := 60
-	if width > 0 && width < 64 {
-		boxWidth = width - 4
-	}
-
-	modalBox := th.ModalStyle().Width(boxWidth).Render(body)
-	return lipgloss.Place(width, len(themes)+6, lipgloss.Center, lipgloss.Center, modalBox)
 }

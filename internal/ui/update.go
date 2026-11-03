@@ -52,7 +52,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case PeriodicTickMsg:
-		// Periodic background polling only if not in active modal or connecting
 		if m.modal == ModalNone && !m.isConnecting {
 			cmds = append(cmds, fetchDataCmd(m.client, true))
 		}
@@ -80,7 +79,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Clamp cursor positions
 		filteredNets := m.getFilteredNetworks()
 		if len(filteredNets) == 0 {
 			m.cursorAvailable = 0
@@ -163,41 +161,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle active modal interactions
+	// Handle modal dialogs (Password / Confirm / Help)
 	if m.modal != ModalNone {
 		switch m.modal {
-		case ModalThemePicker:
-			themes := theme.List()
-			switch msg.String() {
-			case "esc", "q":
-				m.modal = ModalNone
-				return m, nil
-			case "up", "k":
-				if m.themePickerIndex > 0 {
-					m.themePickerIndex--
-				} else {
-					m.themePickerIndex = len(themes) - 1
-				}
-				// Live preview!
-				m.currentTheme = themes[m.themePickerIndex]
-				return m, nil
-			case "down", "j":
-				if m.themePickerIndex < len(themes)-1 {
-					m.themePickerIndex++
-				} else {
-					m.themePickerIndex = 0
-				}
-				// Live preview!
-				m.currentTheme = themes[m.themePickerIndex]
-				return m, nil
-			case "enter":
-				m.currentTheme = themes[m.themePickerIndex]
-				m.modal = ModalNone
-				m.setNotification(fmt.Sprintf("Theme: %s", m.currentTheme.Name), NotifSuccess, 2*time.Second)
-				return m, nil
-			}
-			return m, nil
-
 		case ModalPassword:
 			switch msg.String() {
 			case "esc":
@@ -250,6 +216,37 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle Side-by-Side Theme Switcher
+	if m.isThemePicker {
+		themes := theme.List()
+		switch msg.String() {
+		case "esc", "enter", "t", "space":
+			m.isThemePicker = false
+			m.setNotification(fmt.Sprintf("Theme: %s", m.currentTheme.Name), NotifSuccess, 2*time.Second)
+			return m, nil
+		case "up", "k":
+			if m.themePickerIndex > 0 {
+				m.themePickerIndex--
+			} else {
+				m.themePickerIndex = len(themes) - 1
+			}
+			m.currentTheme = themes[m.themePickerIndex]
+			return m, nil
+		case "down", "j":
+			if m.themePickerIndex < len(themes)-1 {
+				m.themePickerIndex++
+			} else {
+				m.themePickerIndex = 0
+			}
+			m.currentTheme = themes[m.themePickerIndex]
+			return m, nil
+		case "q", "ctrl+c":
+			m.isThemePicker = false
+			return m, nil
+		}
+		return m, nil
+	}
+
 	// Handle search/filtering input mode
 	if m.filtering {
 		switch msg.String() {
@@ -284,7 +281,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-		m.modal = ModalThemePicker
+		m.isThemePicker = true
 		return m, nil
 
 	case key.Matches(msg, keys.Tab):
@@ -410,12 +407,14 @@ func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// If it's already known on the system or open, connect directly! Never ask for passphrase!
 		if selected.Known || selected.Type == "open" {
 			m.isConnecting = true
 			m.busyAction = fmt.Sprintf("Connecting to %s...", selected.Name)
 			return m, connectDirectCmd(m.client, selected.Path, selected.Name)
 		}
 
+		// Only ask for passphrase if completely unknown and secured
 		m.passwordModal = NewPasswordModal(selected, m.currentTheme)
 		m.modal = ModalPassword
 		return m, nil
@@ -440,13 +439,9 @@ func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
 			}
 		}
 
-		devName := "wlan0"
-		if len(m.devices) > 0 && m.selectedDev < len(m.devices) {
-			devName = m.devices[m.selectedDev].Name
-		}
 		m.isConnecting = true
 		m.busyAction = fmt.Sprintf("Connecting to %s...", selectedKnown.Name)
-		return m, connectWithPassCmd(m.client, devName, selectedKnown.Name, "")
+		return m, connectDirectCmd(m.client, "", selectedKnown.Name)
 	}
 
 	return m, nil

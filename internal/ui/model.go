@@ -39,8 +39,9 @@ type Model struct {
 	width      int
 	height     int
 
-	// Active Theme
+	// Active Theme & Side-by-Side Theme Picker
 	currentTheme     theme.Theme
+	isThemePicker    bool
 	themePickerIndex int
 
 	// Data
@@ -60,7 +61,7 @@ type Model struct {
 	filterInput textinput.Model
 	filtering   bool
 
-	// Modals & Popups
+	// Modals & Popups (strictly for forms)
 	modal         ModalType
 	passwordModal PasswordModal
 	targetForget  *iwd.KnownNetwork

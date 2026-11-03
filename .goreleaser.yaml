@@ -1,0 +1,45 @@
+version: 2
+
+project_name: nm-go
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: nm-go
+    main: .
+    binary: nm-go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+
+archives:
+  - id: nm-go
+    ids:
+      - nm-go
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+release:
+  draft: false
+  prerelease: auto

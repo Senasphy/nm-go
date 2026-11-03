@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"nm-go/internal/iwd"
+	"nm-go/internal/theme"
 )
 
 func TestFiltering(t *testing.T) {
-	m := InitialModel(nil)
+	m := InitialModel(nil, theme.Default())
 	m.networks = []iwd.Network{
 		{Name: "HomeWiFi", Type: "psk"},
 		{Name: "Office-5G", Type: "8021x"},
@@ -38,7 +39,7 @@ func TestFiltering(t *testing.T) {
 }
 
 func TestCursorClamping(t *testing.T) {
-	m := InitialModel(nil)
+	m := InitialModel(nil, theme.Default())
 	m.activeTab = TabAvailable
 	m.networks = []iwd.Network{
 		{Name: "Net1"},
@@ -59,5 +60,17 @@ func TestCursorClamping(t *testing.T) {
 	m.navigateDown()
 	if m.cursorAvailable != 1 {
 		t.Errorf("expected cursor to stay clamped at 1, got %d", m.cursorAvailable)
+	}
+}
+
+func TestThemeResolution(t *testing.T) {
+	th, ok := theme.Get("catppuccin")
+	if !ok || th.ID != "catppuccin" {
+		t.Errorf("expected catppuccin theme, got %v", th)
+	}
+
+	thGruv, ok := theme.Get("gruvbox-dark")
+	if !ok || thGruv.ID != "gruvbox" {
+		t.Errorf("expected gruvbox theme, got %v", thGruv)
 	}
 }

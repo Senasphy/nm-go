@@ -1,140 +1,74 @@
 package ui
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
+	"nm-go/internal/theme"
 )
 
-var (
-	// Theme palette
-	ColorPrimary   = lipgloss.Color("#00D4FF")
-	ColorSecondary = lipgloss.Color("#A855F7")
-	ColorSuccess   = lipgloss.Color("#22C55E")
-	ColorWarning   = lipgloss.Color("#EAB308")
-	ColorDanger    = lipgloss.Color("#EF4444")
-	ColorMuted     = lipgloss.Color("#6B7280")
-	ColorHighlight = lipgloss.Color("#38BDF8")
-	ColorDarkBg    = lipgloss.Color("#1E1E2E")
-	ColorCardBg    = lipgloss.Color("#262637")
-	ColorText      = lipgloss.Color("#F3F4F6")
-
-	// App Header
-	StyleHeader = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#4338CA")).
-			Padding(0, 1)
-
-	StyleBadge = lipgloss.NewStyle().
-			Bold(true).
-			Padding(0, 1).
-			MarginRight(1)
-
-	StyleBadgeSuccess = StyleBadge.
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(ColorSuccess)
-
-	StyleBadgeWarning = StyleBadge.
-				Foreground(lipgloss.Color("#000000")).
-				Background(ColorWarning)
-
-	StyleBadgeDanger = StyleBadge.
-				Foreground(lipgloss.Color("#FFFFFF")).
-				Background(ColorDanger)
-
-	StyleBadgeMuted = StyleBadge.
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(ColorMuted)
-
-	// Tabs
-	StyleTabActive = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(ColorPrimary).
-			Padding(0, 1).
-			MarginRight(1)
-
-	StyleTabInactive = lipgloss.NewStyle().
-				Foreground(ColorMuted).
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorMuted).
-				Padding(0, 1).
-				MarginRight(1)
-
-	// Tables and Rows
-	StyleTableHeader = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorHighlight).
-				Padding(0, 1)
-
-	StyleRow = lipgloss.NewStyle().
-			Padding(0, 1)
-
-	StyleRowSelected = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorText).
-				Background(lipgloss.Color("#374151")).
-				Padding(0, 1)
-
-	StyleConnectedTag = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(ColorSuccess)
-
-	StyleKnownTag = lipgloss.NewStyle().
-			Foreground(ColorSecondary)
-
-	// Signal meters
-	StyleSignalHigh = lipgloss.NewStyle().
-			Foreground(ColorSuccess).
-			Bold(true)
-
-	StyleSignalMid = lipgloss.NewStyle().
-			Foreground(ColorWarning).
-			Bold(true)
-
-	StyleSignalLow = lipgloss.NewStyle().
-			Foreground(ColorDanger).
-			Bold(true)
-
-	// Status and Notification Bar
-	StyleStatusBar = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder(), false, false, true, false).
-			BorderForeground(lipgloss.Color("#374151")).
-			Padding(0, 1).
-			MarginTop(1)
-
-	StyleNotification = lipgloss.NewStyle().
-				Padding(0, 1).
-				Bold(true)
-
-	// Help and Footer
-	StyleHelpKey = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary)
-
-	StyleHelpDesc = lipgloss.NewStyle().
-			Foreground(ColorMuted)
-
-	// Modal Dialogs
-	StyleModalBorder = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(ColorPrimary).
-				Padding(1, 2)
-
-	StyleModalTitle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(ColorPrimary).
-			MarginBottom(1)
-)
-
-// SignalStyle returns the appropriate styling for a given signal percent
-func SignalStyle(percent int) lipgloss.Style {
-	switch {
-	case percent >= 65:
-		return StyleSignalHigh
-	case percent >= 35:
-		return StyleSignalMid
-	default:
-		return StyleSignalLow
+// SignalMeter renders a btop-inspired visual bar meter with percentage and dBm
+func RenderSignalMeter(th theme.Theme, pct int, dbm float64) string {
+	bars := 8
+	filled := (pct * bars) / 100
+	if filled > bars {
+		filled = bars
 	}
+	if filled < 1 && pct > 0 {
+		filled = 1
+	}
+
+	meterStr := strings.Repeat("■", filled) + strings.Repeat("·", bars-filled)
+
+	var color lipgloss.TerminalColor
+	switch {
+	case pct >= 65:
+		color = th.Success
+	case pct >= 35:
+		color = th.Warning
+	default:
+		color = th.Danger
+	}
+
+	meterStyled := lipgloss.NewStyle().Foreground(color).Bold(true).Render(meterStr)
+	textStyled := lipgloss.NewStyle().Foreground(th.Text).Render(fmt.Sprintf("%3d%% (%4.1fdBm)", pct, dbm))
+
+	return meterStyled + " " + textStyled
+}
+
+// RenderCommandBadge renders an inverted keycap pill like in UniSocket
+func RenderCommandBadge(th theme.Theme, key, action string) string {
+	kStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(th.TitleText).
+		Background(th.Highlight).
+		Padding(0, 1).
+		Render(key)
+
+	aStyle := lipgloss.NewStyle().
+		Foreground(th.Text).
+		Render(" " + action)
+
+	return kStyle + aStyle
+}
+
+// RenderTab renders a styled tab pill
+func RenderTab(th theme.Theme, title string, active bool) string {
+	if active {
+		return lipgloss.NewStyle().
+			Bold(true).
+			Foreground(th.TitleText).
+			Background(th.Highlight).
+			Padding(0, 2).
+			MarginRight(1).
+			Render(title)
+	}
+
+	return lipgloss.NewStyle().
+		Foreground(th.Muted).
+		Background(th.HeaderBg).
+		Padding(0, 2).
+		MarginRight(1).
+		Render(title)
 }

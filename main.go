@@ -7,14 +7,16 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"nm-go/internal/iwd"
+	"nm-go/internal/theme"
 	"nm-go/internal/ui"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	showHelp := flag.Bool("help", false, "Print help and exit")
+	themeName := flag.String("theme", "tokyonight", "Launch with specific theme (e.g. tokyonight, catppuccin, gruvbox, dracula, nord, onedark, rose-pine, monokai, cyberpunk, default)")
 	flag.Parse()
 
 	if *showVersion {
@@ -45,9 +47,12 @@ func main() {
 	}
 	defer client.Close()
 
+	// Resolve requested theme or fallback to Tokyo Night
+	selectedTheme, _ := theme.Get(*themeName)
+
 	// Initialize and run Bubble Tea program with alternate screen buffer
 	p := tea.NewProgram(
-		ui.InitialModel(client),
+		ui.InitialModel(client, selectedTheme),
 		tea.WithAltScreen(),
 	)
 

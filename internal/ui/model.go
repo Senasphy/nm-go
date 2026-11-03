@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"nm-go/internal/iwd"
+	"nm-go/internal/theme"
 )
 
 type TabType int
@@ -38,14 +39,18 @@ type Model struct {
 	width      int
 	height     int
 
+	// Active Theme
+	currentTheme     theme.Theme
+	themePickerIndex int
+
 	// Data
-	activeTab      TabType
-	devices        []iwd.Device
-	selectedDev    int
-	station        *iwd.Station
-	networks       []iwd.Network
-	knownNetworks  []iwd.KnownNetwork
-	activeNetwork  *iwd.Network
+	activeTab     TabType
+	devices       []iwd.Device
+	selectedDev   int
+	station       *iwd.Station
+	networks      []iwd.Network
+	knownNetworks []iwd.KnownNetwork
+	activeNetwork *iwd.Network
 
 	// Navigation & Selection
 	cursorAvailable int
@@ -68,19 +73,19 @@ type Model struct {
 	busyAction   string
 }
 
-// InitialModel initializes the Bubble Tea model
-func InitialModel(client *iwd.Client) Model {
+// InitialModel initializes the Bubble Tea model with a chosen theme
+func InitialModel(client *iwd.Client, th theme.Theme) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = StyleBadgeMuted
 
 	fi := textinput.New()
 	fi.Placeholder = "Type to filter SSIDs..."
 	fi.CharLimit = 32
-	fi.Width = 24
+	fi.Width = 30
 
 	return Model{
 		client:          client,
+		currentTheme:    th,
 		activeTab:       TabAvailable,
 		cursorAvailable: 0,
 		cursorSaved:     0,

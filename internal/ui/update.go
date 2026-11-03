@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"nm-go/internal/iwd"
+	"nm-go/internal/theme"
 )
 
 type FetchDataMsg struct {
@@ -51,7 +52,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case PeriodicTickMsg:
-		// Periodic background polling only if not in the middle of active modal or connecting
+		// Periodic background polling only if not in active modal or connecting
 		if m.modal == ModalNone && !m.isConnecting {
 			cmds = append(cmds, fetchDataCmd(m.client, true))
 		}
@@ -103,7 +104,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification("Scan completed", NotifSuccess, 3*time.Second)
 		}
-		// Refresh data after scan
 		return m, fetchDataCmd(m.client, false)
 
 	case ConnectResultMsg:
@@ -166,6 +166,38 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle active modal interactions
 	if m.modal != ModalNone {
 		switch m.modal {
+		case ModalThemePicker:
+			themes := theme.List()
+			switch msg.String() {
+			case "esc", "q":
+				m.modal = ModalNone
+				return m, nil
+			case "up", "k":
+				if m.themePickerIndex > 0 {
+					m.themePickerIndex--
+				} else {
+					m.themePickerIndex = len(themes) - 1
+				}
+				// Live preview!
+				m.currentTheme = themes[m.themePickerIndex]
+				return m, nil
+			case "down", "j":
+				if m.themePickerIndex < len(themes)-1 {
+					m.themePickerIndex++
+				} else {
+					m.themePickerIndex = 0
+				}
+				// Live preview!
+				m.currentTheme = themes[m.themePickerIndex]
+				return m, nil
+			case "enter":
+				m.currentTheme = themes[m.themePickerIndex]
+				m.modal = ModalNone
+				m.setNotification(fmt.Sprintf("Theme: %s", m.currentTheme.Name), NotifSuccess, 2*time.Second)
+				return m, nil
+			}
+			return m, nil
+
 		case ModalPassword:
 			switch msg.String() {
 			case "esc":
@@ -210,7 +242,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 
 		case ModalHelp:
-			if msg.String() == "esc" || msg.String() == "?" || msg.String() == "q" {
+			if msg.String() == "esc" || msg.String() == "?" || msg.String() == "q" || msg.String() == "enter" {
 				m.modal = ModalNone
 				return m, nil
 			}
@@ -218,14 +250,14 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Handle search/filtering input
+	// Handle search/filtering input mode
 	if m.filtering {
 		switch msg.String() {
-		case "esc":
+		case "esc", "ctrl+c":
 			m.filtering = false
 			m.filterInput.SetValue("")
 			return m, nil
-		case "enter":
+		case "enter", "down", "tab":
 			m.filtering = false
 			return m, nil
 		default:
@@ -242,6 +274,17 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case key.Matches(msg, keys.Help):
 		m.modal = ModalHelp
+		return m, nil
+
+	case key.Matches(msg, keys.Theme):
+		themes := theme.List()
+		for i, th := range themes {
+			if th.ID == m.currentTheme.ID {
+				m.themePickerIndex = i
+				break
+			}
+		}
+		m.modal = ModalThemePicker
 		return m, nil
 
 	case key.Matches(msg, keys.Tab):
@@ -367,15 +410,13 @@ func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// If it's already known or open, connect directly
 		if selected.Known || selected.Type == "open" {
 			m.isConnecting = true
 			m.busyAction = fmt.Sprintf("Connecting to %s...", selected.Name)
 			return m, connectDirectCmd(m.client, selected.Path, selected.Name)
 		}
 
-		// Otherwise prompt for passphrase
-		m.passwordModal = NewPasswordModal(selected)
+		m.passwordModal = NewPasswordModal(selected, m.currentTheme)
 		m.modal = ModalPassword
 		return m, nil
 	}
@@ -387,7 +428,6 @@ func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
 		}
 		selectedKnown := filtered[m.cursorSaved]
 
-		// Find in available networks to get object path
 		for _, net := range m.networks {
 			if net.Name == selectedKnown.Name {
 				if net.Connected {
@@ -400,7 +440,6 @@ func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// If not in current scan list, try connecting by name via iwctl
 		devName := "wlan0"
 		if len(m.devices) > 0 && m.selectedDev < len(m.devices) {
 			devName = m.devices[m.selectedDev].Name

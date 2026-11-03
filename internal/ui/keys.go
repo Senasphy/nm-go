@@ -16,6 +16,7 @@ type keyMap struct {
 	Power      key.Binding
 	AutoConn   key.Binding
 	Filter     key.Binding
+	Theme      key.Binding
 	Help       key.Binding
 	Quit       key.Binding
 }
@@ -64,6 +65,10 @@ var keys = keyMap{
 	Filter: key.NewBinding(
 		key.WithKeys("/"),
 		key.WithHelp("/", "filter"),
+	),
+	Theme: key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "theme"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),

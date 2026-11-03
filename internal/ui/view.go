@@ -10,7 +10,21 @@ import (
 
 var pageStyle = lipgloss.NewStyle().Padding(1, 2)
 
-const themeBoxWidth = 26
+const (
+	minMainHeight = 15
+	themeBoxWidth = 26
+)
+
+func (m Model) getMainSectionHeight() int {
+	h := minMainHeight
+	if m.height > 24 {
+		h = m.height - 12
+	}
+	if h < minMainHeight {
+		h = minMainHeight
+	}
+	return h
+}
 
 func (m Model) View() string {
 	if m.width == 0 {
@@ -38,19 +52,21 @@ func (m Model) View() string {
 		totalWidth = 50
 	}
 
+	mainH := m.getMainSectionHeight()
+
 	// 1. Header Banner Pill & Live Connection Status
 	headerBanner := m.renderHeaderBanner()
 	tabsRow := m.renderTabs()
 
-	// 2. Main Section: Table (and optional side-by-side Theme Switcher)
+	// 2. Main Section: Table (and optional side-by-side Theme Switcher) with fixed, balanced height
 	var mainSection string
 	if m.isThemePicker && totalWidth >= 75 {
 		tableW := totalWidth - themeBoxWidth - 2
-		tableView := m.renderMainTable(tableW)
-		themeBox := m.renderSideThemePicker(themeBoxWidth)
+		tableView := m.renderMainTable(tableW, mainH)
+		themeBox := m.renderSideThemePicker(themeBoxWidth, mainH)
 		mainSection = lipgloss.JoinHorizontal(lipgloss.Top, tableView, "  ", themeBox)
 	} else {
-		mainSection = m.renderMainTable(totalWidth)
+		mainSection = m.renderMainTable(totalWidth, mainH)
 	}
 
 	// 3. Optional Search Box
@@ -108,22 +124,24 @@ func (m Model) renderTabs() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, tab0, tab1, tab2) + "\n"
 }
 
-func (m Model) renderMainTable(totalWidth int) string {
-	tableContainer := m.currentTheme.TableContainerStyle().Width(totalWidth - 2)
+func (m Model) renderMainTable(totalWidth int, height int) string {
+	tableContainer := m.currentTheme.TableContainerStyle().
+		Width(totalWidth - 2).
+		Height(height)
 
 	switch m.activeTab {
 	case TabAvailable:
-		return tableContainer.Render(m.renderAvailableTab(totalWidth - 4))
+		return tableContainer.Render(m.renderAvailableTab(totalWidth-4, height))
 	case TabSaved:
-		return tableContainer.Render(m.renderSavedTab(totalWidth - 4))
+		return tableContainer.Render(m.renderSavedTab(totalWidth-4, height))
 	case TabDetails:
-		return tableContainer.Render(m.renderDetailsTab(totalWidth - 4))
+		return tableContainer.Render(m.renderDetailsTab(totalWidth-4, height))
 	default:
 		return ""
 	}
 }
 
-func (m Model) renderAvailableTab(innerW int) string {
+func (m Model) renderAvailableTab(innerW int, height int) string {
 	networks := m.getFilteredNetworks()
 
 	colWName := 28
@@ -158,7 +176,7 @@ func (m Model) renderAvailableTab(innerW int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, header, emptyBlock)
 	}
 
-	maxVisible := m.height - 14
+	maxVisible := height - 1
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -224,7 +242,7 @@ func (m Model) renderAvailableTab(innerW int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-func (m Model) renderSavedTab(innerW int) string {
+func (m Model) renderSavedTab(innerW int, height int) string {
 	known := m.getFilteredKnownNetworks()
 
 	colWName := 30
@@ -259,7 +277,7 @@ func (m Model) renderSavedTab(innerW int) string {
 		return lipgloss.JoinVertical(lipgloss.Left, header, emptyBlock)
 	}
 
-	maxVisible := m.height - 14
+	maxVisible := height - 1
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -322,7 +340,7 @@ func (m Model) renderSavedTab(innerW int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-func (m Model) renderDetailsTab(innerW int) string {
+func (m Model) renderDetailsTab(innerW int, height int) string {
 	if len(m.devices) == 0 {
 		return lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Padding(2, 2).Render("No wireless hardware detected.")
 	}
@@ -368,9 +386,11 @@ func (m Model) renderDetailsTab(innerW int) string {
 	return lipgloss.NewStyle().Padding(1, 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 }
 
-// renderSideThemePicker renders a narrow, clean side box without descriptions
-func (m Model) renderSideThemePicker(width int) string {
-	card := m.currentTheme.CardStyle().Width(width - 2)
+// renderSideThemePicker renders a narrow, clean side box matching the main table height
+func (m Model) renderSideThemePicker(width int, height int) string {
+	card := m.currentTheme.CardStyle().
+		Width(width - 2).
+		Height(height)
 
 	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Theme")
 

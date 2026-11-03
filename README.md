@@ -8,31 +8,16 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ## ✨ Features
 
-- **Native D-Bus + System Network Sync**:
-  - Direct communication with `iwd` over the system D-Bus (`net.connman.iwd`).
-  - **Full credential sync**: Recognizes networks you've already logged into via system connection managers (e.g. NetworkManager). Never re-prompts for passphrases on saved networks.
-  - Accurate real-time connection state synchronized with the active hardware interface.
-- **Tabbed Network Views**:
-  - **Available Networks**: In-range scan results with btop-style signal meters (`■■■■■··· 65%`), security badges (`WPA2/3`, `Open`, `802.1x`), and status tags (`✔ Connected`, `★ Saved`, `● Open`).
-  - **Saved Networks**: Consolidated list of all known networks, auto-connect toggles, and relative last-connected timestamps.
-  - **Device Diagnostics**: Hardware interface details (`wlan0`), MAC address, operational mode, station state, and physical chipset details (`phy0`, vendor, driver).
-- **Responsive Side-by-Side Theme Switcher**:
-  - Press <kbd>t</kbd> to slide out a clean, compact theme selector on the right side while keeping the network table visible on the left.
-  - Changes apply live in real time as you navigate through 10 curated themes (*Tokyo Night*, *Catppuccin Mocha*, *Gruvbox Dark*, *Dracula*, *Nord*, *One Dark*, *Rosé Pine*, *Monokai Pro*, *Cyberpunk Neon*, and *Retro*).
-- **Uncluttered Commands Deck**:
-  - Full-width bottom card with inverted keycap badges and live status alerts.
-- **Interactive Search Box**:
-  - Press <kbd>/</kbd> to filter SSIDs in real time.
-- **Passphrase Modal**:
-  - Secure modal dialog with asterisk masking and show/hide password toggle (<kbd>Ctrl+R</kbd>) for new, unconfigured networks.
-- **Hardware Radio Control**:
-  - Toggle Wi-Fi radio power on/off with a single keypress (<kbd>p</kbd>).
+- **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
+- **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
+- **Side-by-Side Theme Engine**: 10 curated terminal palettes with an interactive, live-preview switcher and startup flag support.
+- **Keyboard-First Workflow**: Fast in-table navigation, instant SSID search filtering, hardware radio power control, and secure credential entry.
 
 ---
 
 ## 🎨 Themes Showcase
 
-`nm-go` supports 10 built-in terminal palettes:
+`nm-go` ships with 10 built-in palettes:
 
 | Theme ID | Name | Style |
 | :--- | :--- | :--- |
@@ -100,6 +85,37 @@ sudo mv nm-go /usr/local/bin/
 | <kbd>?</kbd> | Toggle help & command reference |
 | <kbd>Esc</kbd> | Close theme panel / clear search / cancel action |
 | <kbd>q</kbd> / <kbd>Ctrl+C</kbd> | Quit nm-go |
+
+---
+
+## 🤝 Contributing
+
+Contributions, bug reports, and feature proposals are welcome.
+
+### Reporting Issues
+
+If you encounter unexpected behavior or have a feature suggestion, please open an issue on the [GitHub Issues](https://github.com/Senasphy/nm-go/issues) page. When filing a bug report, please include:
+- Operating system distribution and kernel version.
+- Active wireless services (`systemctl status iwd` / `NetworkManager`).
+- Relevant logs or steps to reproduce the issue.
+
+### Submitting Pull Requests
+
+1. **Fork** the repository and create a dedicated branch:
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+2. **Make your changes** following idiomatic Go conventions.
+3. **Verify tests and code health**:
+   ```bash
+   go test -v ./...
+   go vet ./...
+   ```
+4. **Commit** with clear, descriptive commit messages:
+   ```bash
+   git commit -m "feat(ui): add network sorting options"
+   ```
+5. **Push** to your fork and submit a Pull Request against `main`.
 
 ---
 

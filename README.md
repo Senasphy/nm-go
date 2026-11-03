@@ -6,37 +6,20 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ---
 
+## 📸 Screenshots
+
+![nm-go Tokyo Night](./assets/theme-tokyonight.png)
+![nm-go Catppuccin Mocha](./assets/theme-catppuccin.png)
+![nm-go Gruvbox Dark](./assets/theme-gruvbox.png)
+
+---
+
 ## ✨ Features
 
 - **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
 - **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
 - **Side-by-Side Theme Engine**: 10 curated terminal palettes with an interactive, live-preview switcher and startup flag support.
 - **Keyboard-First Workflow**: Fast in-table navigation, instant SSID search filtering, hardware radio power control, and secure credential entry.
-
----
-
-## 🎨 Themes Showcase
-
-`nm-go` ships with 10 built-in palettes:
-
-| Theme ID | Name | Style |
-| :--- | :--- | :--- |
-| `tokyonight` *(default)* | **Tokyo Night** | Downtown Tokyo neon blue and amber accents |
-| `catppuccin` | **Catppuccin Mocha** | Soothing pastel dark palette with lavender highlight |
-| `gruvbox` | **Gruvbox Dark** | Warm retro groove with earthy orange and yellow tones |
-| `dracula` | **Dracula** | Iconic gothic dark theme with vibrant purple and green |
-| `nord` | **Nord** | Arctic, north-bluish clean aesthetic |
-| `onedark` | **One Dark** | Atom and Neovim balanced classic |
-| `rose-pine` | **Rosé Pine** | Soho vibes, pine tones, and cozy aesthetic |
-| `monokai` | **Monokai Pro** | High-contrast developer theme with bright yellow highlights |
-| `cyberpunk` | **Cyberpunk Neon** | Synthwave neon pink and cyan glow |
-| `default` | **Default Retro** | Classic cyan and amber terminal palette |
-
-Press <kbd>t</kbd> inside the TUI to browse themes side-by-side, or launch directly with:
-
-```bash
-nm-go -theme gruvbox
-```
 
 ---
 
@@ -56,7 +39,17 @@ nm-go -theme gruvbox
 go install github.com/Senasphy/nm-go@latest
 ```
 
-### 2. Build From Source
+### 2. Install From GitHub Releases
+
+Pre-compiled standalone binaries for Linux (`x86_64`, `arm64`, and `arm`) are available on the [Releases](https://github.com/Senasphy/nm-go/releases) page.
+
+```bash
+# Example for Linux x86_64
+tar -xzf nm-go_*_linux_amd64.tar.gz
+sudo mv nm-go /usr/local/bin/
+```
+
+### 3. Build From Source
 
 ```bash
 git clone https://github.com/Senasphy/nm-go.git

@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
-	"nm-go/internal/iwd"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 func TestFiltering(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"nm-go/internal/iwd"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 type FetchDataMsg struct {

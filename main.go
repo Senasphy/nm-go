@@ -6,9 +6,9 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"nm-go/internal/iwd"
-	"nm-go/internal/theme"
-	"nm-go/internal/ui"
+	"github.com/Senasphy/nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/ui"
 )
 
 const version = "0.2.0"

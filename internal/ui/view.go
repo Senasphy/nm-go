@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 var pageStyle = lipgloss.NewStyle().Padding(1, 2)

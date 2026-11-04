@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"nm-go/internal/iwd"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 // SetModelData populates the model state for visual snapshots and tests

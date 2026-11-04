@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 // SignalMeter renders a btop-inspired visual bar meter with percentage and dBm

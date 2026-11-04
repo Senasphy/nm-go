@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/godbus/dbus/v5"
-	"nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/iwd"
 )
 
 func fetchDataCmd(client *iwd.Client, background bool) tea.Cmd {

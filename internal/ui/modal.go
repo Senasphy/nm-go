@@ -5,8 +5,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-	"nm-go/internal/iwd"
-	"nm-go/internal/theme"
+	"github.com/Senasphy/nm-go/internal/iwd"
+	"github.com/Senasphy/nm-go/internal/theme"
 )
 
 type ModalType int

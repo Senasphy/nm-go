@@ -86,7 +86,7 @@ resolve_version() {
     fi
 
     # Static fallback
-    echo "v0.1.0"
+    echo "v0.2.0"
 }
 
 TAG="$(resolve_version)"

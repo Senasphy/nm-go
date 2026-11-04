@@ -1,4 +1,4 @@
-# nm-go 📶
+# nm-go
 
 A fast, lightweight, and modern Terminal User Interface (TUI) for managing Wi-Fi networks on Linux using `iwd` (iNet wireless daemon) and the Charm ecosystem ([Bubble Tea](https://github.com/charmbracelet/bubbletea) + [Lip Gloss](https://github.com/charmbracelet/lipgloss)).
 
@@ -6,7 +6,7 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 ![Available Networks](./assets/available-networks.png)
 ![Theme Switcher](./assets/theme-switcher.png)
@@ -14,7 +14,7 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ---
 
-## ✨ Features
+## Features
 
 - **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
 - **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
@@ -23,7 +23,7 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ---
 
-## 🛠️ Requirements
+## Requirements
 
 - **Linux** with `iwd` and/or `NetworkManager` active
 - **Go** 1.21 or later
@@ -31,7 +31,7 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### 1. Install With Go
 
@@ -61,7 +61,7 @@ sudo mv nm-go /usr/local/bin/
 
 ---
 
-## 🕹️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Key | Action |
 | :--- | :--- |
@@ -81,7 +81,7 @@ sudo mv nm-go /usr/local/bin/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, bug reports, and feature proposals are welcome.
 
@@ -112,6 +112,6 @@ If you encounter unexpected behavior or have a feature suggestion, please open a
 
 ---
 
-## 📄 License
+## License
 
 MIT © [Senasphy](https://github.com/Senasphy)

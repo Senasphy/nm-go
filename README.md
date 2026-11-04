@@ -8,9 +8,9 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ## 📸 Screenshots
 
-![nm-go Tokyo Night](./assets/theme-tokyonight.png)
-![nm-go Catppuccin Mocha](./assets/theme-catppuccin.png)
-![nm-go Gruvbox Dark](./assets/theme-gruvbox.png)
+![Available Networks](./assets/available-networks.png)
+![Theme Switcher](./assets/theme-switcher.png)
+![Saved Networks](./assets/saved-networks.png)
 
 ---
 

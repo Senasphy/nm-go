@@ -1,4 +1,4 @@
-module nm-go
+module github.com/Senasphy/nm-go
 
 go 1.27.3
 

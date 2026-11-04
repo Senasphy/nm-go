@@ -33,13 +33,27 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ## Installation
 
-### 1. Install With Go
+### 1. Quick Install (Recommended)
+
+Install the latest release binary automatically:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Senasphy/nm-go/main/install.sh | bash
+```
+
+To install without root privileges into `~/.local/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Senasphy/nm-go/main/install.sh | INSTALL_DIR=~/.local/bin bash
+```
+
+### 2. Install With Go
 
 ```bash
 go install github.com/Senasphy/nm-go@latest
 ```
 
-### 2. Install From GitHub Releases
+### 3. Install From GitHub Releases
 
 Pre-compiled standalone binaries for Linux (`x86_64`, `arm64`, and `arm`) are available on the [Releases](https://github.com/Senasphy/nm-go/releases) page.
 
@@ -49,7 +63,7 @@ tar -xzf nm-go_*_linux_amd64.tar.gz
 sudo mv nm-go /usr/local/bin/
 ```
 
-### 3. Build From Source
+### 4. Build From Source
 
 ```bash
 git clone https://github.com/Senasphy/nm-go.git

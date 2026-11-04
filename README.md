@@ -18,7 +18,6 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 - **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
 - **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
-- **Side-by-Side Theme Engine**: 10 curated terminal palettes with an interactive, live-preview switcher and startup flag support.
 - **Persistent JSON Configuration**: Automatic saving of chosen themes and preferences to `~/.config/nm-go/config.json`, with support for custom hex colors and user-defined theme palettes.
 - **Keyboard-First Workflow**: Fast in-table navigation, instant SSID search filtering, hardware radio power control, and secure credential entry.
 
@@ -78,21 +77,21 @@ sudo mv nm-go /usr/local/bin/
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-| :--- | :--- |
-| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Switch tabs (*Available* / *Saved* / *Device Info*) |
-| <kbd>↑</kbd> / <kbd>k</kbd> , <kbd>↓</kbd> / <kbd>j</kbd> | Navigate network list / theme selector |
-| <kbd>Enter</kbd> / <kbd>c</kbd> | Connect to selected network (direct connect for known/saved) |
-| <kbd>d</kbd> | Disconnect active network |
-| <kbd>s</kbd> / <kbd>r</kbd> | Trigger a fresh Wi-Fi scan / refresh |
-| <kbd>f</kbd> / <kbd>x</kbd> | Forget saved network credentials (with confirmation) |
-| <kbd>a</kbd> | Toggle auto-connect on saved network |
-| <kbd>p</kbd> | Toggle Wi-Fi power (radio on/off) |
-| <kbd>/</kbd> | Open search box to filter networks by SSID |
-| <kbd>t</kbd> | Toggle side-by-side theme switcher |
-| <kbd>?</kbd> | Toggle help & command reference |
-| <kbd>Esc</kbd> | Close theme panel / clear search / cancel action |
-| <kbd>q</kbd> / <kbd>Ctrl+C</kbd> | Quit nm-go |
+| Key                                                       | Action                                                       |
+| :-------------------------------------------------------- | :----------------------------------------------------------- |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd>                     | Switch tabs (_Available_ / _Saved_ / _Device Info_)          |
+| <kbd>↑</kbd> / <kbd>k</kbd> , <kbd>↓</kbd> / <kbd>j</kbd> | Navigate network list / theme selector                       |
+| <kbd>Enter</kbd> / <kbd>c</kbd>                           | Connect to selected network (direct connect for known/saved) |
+| <kbd>d</kbd>                                              | Disconnect active network                                    |
+| <kbd>s</kbd> / <kbd>r</kbd>                               | Trigger a fresh Wi-Fi scan / refresh                         |
+| <kbd>f</kbd> / <kbd>x</kbd>                               | Forget saved network credentials (with confirmation)         |
+| <kbd>a</kbd>                                              | Toggle auto-connect on saved network                         |
+| <kbd>p</kbd>                                              | Toggle Wi-Fi power (radio on/off)                            |
+| <kbd>/</kbd>                                              | Open search box to filter networks by SSID                   |
+| <kbd>t</kbd>                                              | Toggle side-by-side theme switcher                           |
+| <kbd>?</kbd>                                              | Toggle help & command reference                              |
+| <kbd>Esc</kbd>                                            | Close theme panel / clear search / cancel action             |
+| <kbd>q</kbd> / <kbd>Ctrl+C</kbd>                          | Quit nm-go                                                   |
 
 ---
 
@@ -110,13 +109,13 @@ nm-go --dump-config > ~/.config/nm-go/config.json
 
 ### Configuration Options
 
-| Key | Type | Description |
-| :--- | :--- | :--- |
-| `theme` | string | Active theme ID (e.g. `"tokyonight"`, `"gruvbox"`, `"dracula"`) |
-| `default_tab` | string | Initial tab to open (`"available"`, `"saved"`, `"diagnostics"`) |
-| `scan_interval_seconds` | int | Periodic background discovery interval (default: `15`) |
-| `colors` | object | Global hex color overrides applied across themes |
-| `custom_themes` | array | Custom themes declared with specific hex palettes |
+| Key                     | Type   | Description                                                     |
+| :---------------------- | :----- | :-------------------------------------------------------------- |
+| `theme`                 | string | Active theme ID (e.g. `"tokyonight"`, `"gruvbox"`, `"dracula"`) |
+| `default_tab`           | string | Initial tab to open (`"available"`, `"saved"`, `"diagnostics"`) |
+| `scan_interval_seconds` | int    | Periodic background discovery interval (default: `15`)          |
+| `colors`                | object | Global hex color overrides applied across themes                |
+| `custom_themes`         | array  | Custom themes declared with specific hex palettes               |
 
 ### Example `~/.config/nm-go/config.json`
 
@@ -155,6 +154,7 @@ Contributions, bug reports, and feature proposals are welcome.
 ### Reporting Issues
 
 If you encounter unexpected behavior or have a feature suggestion, please open an issue on the [GitHub Issues](https://github.com/Senasphy/nm-go/issues) page. When filing a bug report, please include:
+
 - Operating system distribution and kernel version.
 - Active wireless services (`systemctl status iwd` / `NetworkManager`).
 - Relevant logs or steps to reproduce the issue.

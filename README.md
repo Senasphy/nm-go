@@ -19,6 +19,7 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 - **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
 - **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
 - **Side-by-Side Theme Engine**: 10 curated terminal palettes with an interactive, live-preview switcher and startup flag support.
+- **Persistent JSON Configuration**: Automatic saving of chosen themes and preferences to `~/.config/nm-go/config.json`, with support for custom hex colors and user-defined theme palettes.
 - **Keyboard-First Workflow**: Fast in-table navigation, instant SSID search filtering, hardware radio power control, and secure credential entry.
 
 ---
@@ -92,6 +93,58 @@ sudo mv nm-go /usr/local/bin/
 | <kbd>?</kbd> | Toggle help & command reference |
 | <kbd>Esc</kbd> | Close theme panel / clear search / cancel action |
 | <kbd>q</kbd> / <kbd>Ctrl+C</kbd> | Quit nm-go |
+
+---
+
+## Configuration
+
+`nm-go` loads user preferences from `~/.config/nm-go/config.json`. When you switch themes using <kbd>t</kbd>, your preference is saved automatically.
+
+You can also customize specific colors with hex codes, define custom theme palettes, or change default startup behavior.
+
+To generate a sample configuration file:
+
+```bash
+nm-go --dump-config > ~/.config/nm-go/config.json
+```
+
+### Configuration Options
+
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `theme` | string | Active theme ID (e.g. `"tokyonight"`, `"gruvbox"`, `"dracula"`) |
+| `default_tab` | string | Initial tab to open (`"available"`, `"saved"`, `"diagnostics"`) |
+| `scan_interval_seconds` | int | Periodic background discovery interval (default: `15`) |
+| `colors` | object | Global hex color overrides applied across themes |
+| `custom_themes` | array | Custom themes declared with specific hex palettes |
+
+### Example `~/.config/nm-go/config.json`
+
+```json
+{
+  "theme": "tokyonight",
+  "default_tab": "available",
+  "colors": {
+    "border": "#29a4bd",
+    "highlight": "#7aa2f7"
+  },
+  "custom_themes": [
+    {
+      "id": "emerald",
+      "name": "Emerald Forest",
+      "colors": {
+        "text": "#e6edf3",
+        "border": "#238636",
+        "highlight": "#2ea043",
+        "header_bg": "#161b22",
+        "header_fg": "#3fb950",
+        "selected_bg": "#2ea043",
+        "selected_fg": "#0d1117"
+      }
+    }
+  ]
+}
+```
 
 ---
 

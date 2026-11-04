@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/Senasphy/nm-go/internal/config"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 )
@@ -66,6 +68,10 @@ type Model struct {
 	passwordModal PasswordModal
 	targetForget  *iwd.KnownNetwork
 
+	// Configuration
+	cfg        *config.Config
+	configPath string
+
 	// Status & Notifications
 	notification *Notification
 	spinner      spinner.Model
@@ -74,8 +80,8 @@ type Model struct {
 	busyAction   string
 }
 
-// InitialModel initializes the Bubble Tea model with a chosen theme
-func InitialModel(client *iwd.Client, th theme.Theme) Model {
+// InitialModel initializes the Bubble Tea model with a chosen theme and configuration
+func InitialModel(client *iwd.Client, th theme.Theme, cfg *config.Config, configPath string) Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 
@@ -84,10 +90,22 @@ func InitialModel(client *iwd.Client, th theme.Theme) Model {
 	fi.CharLimit = 32
 	fi.Width = 30
 
+	initialTab := TabAvailable
+	if cfg != nil {
+		switch strings.ToLower(cfg.DefaultTab) {
+		case "saved":
+			initialTab = TabSaved
+		case "diagnostics", "device", "info", "details":
+			initialTab = TabDetails
+		}
+	}
+
 	return Model{
 		client:          client,
 		currentTheme:    th,
-		activeTab:       TabAvailable,
+		cfg:             cfg,
+		configPath:      configPath,
+		activeTab:       initialTab,
 		cursorAvailable: 0,
 		cursorSaved:     0,
 		spinner:         s,

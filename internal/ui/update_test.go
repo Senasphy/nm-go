@@ -1,14 +1,17 @@
 package ui
 
 import (
+	"path/filepath"
 	"testing"
 
+	"github.com/Senasphy/nm-go/internal/config"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestFiltering(t *testing.T) {
-	m := InitialModel(nil, theme.Default())
+	m := InitialModel(nil, theme.Default(), nil, "")
 	m.networks = []iwd.Network{
 		{Name: "HomeWiFi", Type: "psk"},
 		{Name: "Office-5G", Type: "8021x"},
@@ -39,7 +42,7 @@ func TestFiltering(t *testing.T) {
 }
 
 func TestCursorClamping(t *testing.T) {
-	m := InitialModel(nil, theme.Default())
+	m := InitialModel(nil, theme.Default(), nil, "")
 	m.activeTab = TabAvailable
 	m.networks = []iwd.Network{
 		{Name: "Net1"},
@@ -72,5 +75,50 @@ func TestThemeResolution(t *testing.T) {
 	thGruv, ok := theme.Get("gruvbox-dark")
 	if !ok || thGruv.ID != "gruvbox" {
 		t.Errorf("expected gruvbox theme, got %v", thGruv)
+	}
+}
+
+func TestConfigDefaultTab(t *testing.T) {
+	cfg := &config.Config{
+		DefaultTab: "saved",
+	}
+	m := InitialModel(nil, theme.Default(), cfg, "")
+	if m.activeTab != TabSaved {
+		t.Errorf("expected active tab TabSaved, got %v", m.activeTab)
+	}
+
+	cfgDiag := &config.Config{
+		DefaultTab: "diagnostics",
+	}
+	mDiag := InitialModel(nil, theme.Default(), cfgDiag, "")
+	if mDiag.activeTab != TabDetails {
+		t.Errorf("expected active tab TabDetails, got %v", mDiag.activeTab)
+	}
+}
+
+func TestThemePersistence(t *testing.T) {
+	cfgDir := t.TempDir()
+	cfgPath := filepath.Join(cfgDir, "config.json")
+	cfg := &config.Config{
+		Theme: "tokyonight",
+	}
+
+	m := InitialModel(nil, theme.Default(), cfg, cfgPath)
+	m.isThemePicker = true
+	m.themePickerIndex = 0
+
+	// Navigate down in theme picker
+	updatedM, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedM.(Model)
+
+	// Close theme picker and persist
+	updatedM, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedM.(Model)
+
+	if m.isThemePicker {
+		t.Error("expected theme picker to be closed")
+	}
+	if m.cfg.Theme == "tokyonight" {
+		t.Error("expected theme to have changed in cfg")
 	}
 }

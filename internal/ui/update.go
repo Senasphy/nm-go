@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/Senasphy/nm-go/internal/config"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 )
@@ -223,6 +224,12 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "esc", "enter", "t", "space":
 			m.isThemePicker = false
 			m.setNotification(fmt.Sprintf("Theme: %s", m.currentTheme.Name), NotifSuccess, 2*time.Second)
+			if m.cfg != nil {
+				m.cfg.Theme = m.currentTheme.ID
+				go func(p string, c *config.Config) {
+					_ = config.Save(p, c)
+				}(m.configPath, m.cfg)
+			}
 			return m, nil
 		case "up", "k":
 			if m.themePickerIndex > 0 {
@@ -230,7 +237,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.themePickerIndex = len(themes) - 1
 			}
-			m.currentTheme = themes[m.themePickerIndex]
+			newTh := themes[m.themePickerIndex]
+			if m.cfg != nil && m.cfg.ColorOverrides != nil {
+				newTh = config.ApplyOverrides(newTh, m.cfg.ColorOverrides)
+			}
+			m.currentTheme = newTh
 			return m, nil
 		case "down", "j":
 			if m.themePickerIndex < len(themes)-1 {
@@ -238,7 +249,11 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.themePickerIndex = 0
 			}
-			m.currentTheme = themes[m.themePickerIndex]
+			newTh := themes[m.themePickerIndex]
+			if m.cfg != nil && m.cfg.ColorOverrides != nil {
+				newTh = config.ApplyOverrides(newTh, m.cfg.ColorOverrides)
+			}
+			m.currentTheme = newTh
 			return m, nil
 		case "q", "ctrl+c":
 			m.isThemePicker = false

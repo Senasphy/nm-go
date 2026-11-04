@@ -399,8 +399,22 @@ func (m Model) renderSideThemePicker(width int, height int) string {
 	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Success)
 	itemStyle := lipgloss.NewStyle().Foreground(m.currentTheme.Text)
 
-	items := make([]string, len(themes))
-	for i, t := range themes {
+	maxVisible := height - 4
+	if maxVisible < 5 {
+		maxVisible = 5
+	}
+	startIdx := 0
+	if m.themePickerIndex >= maxVisible {
+		startIdx = m.themePickerIndex - maxVisible + 1
+	}
+	endIdx := startIdx + maxVisible
+	if endIdx > len(themes) {
+		endIdx = len(themes)
+	}
+
+	var items []string
+	for i := startIdx; i < endIdx; i++ {
+		t := themes[i]
 		cursor := "  "
 		if i == m.themePickerIndex {
 			cursor = "▸ "
@@ -417,9 +431,9 @@ func (m Model) renderSideThemePicker(width int, height int) string {
 		}
 
 		if i == m.themePickerIndex {
-			items[i] = cursorStyle.Render(cursor) + selectedStyle.Render(indicator) + cursorStyle.Render(nameStr)
+			items = append(items, cursorStyle.Render(cursor)+selectedStyle.Render(indicator)+cursorStyle.Render(nameStr))
 		} else {
-			items[i] = itemStyle.Render(cursor) + selectedStyle.Render(indicator) + itemStyle.Render(nameStr)
+			items = append(items, itemStyle.Render(cursor)+selectedStyle.Render(indicator)+itemStyle.Render(nameStr))
 		}
 	}
 

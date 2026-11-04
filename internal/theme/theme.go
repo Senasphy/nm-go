@@ -295,6 +295,23 @@ var allThemes = []Theme{
 	},
 }
 
+// Register adds or updates a theme in the registry.
+func Register(t Theme) {
+	if strings.TrimSpace(t.ID) == "" {
+		return
+	}
+	cleanID := strings.ToLower(strings.TrimSpace(t.ID))
+	t.ID = cleanID
+
+	for i, existing := range allThemes {
+		if existing.ID == cleanID {
+			allThemes[i] = t
+			return
+		}
+	}
+	allThemes = append(allThemes, t)
+}
+
 // List returns a slice of all available themes.
 func List() []Theme {
 	themes := make([]Theme, len(allThemes))

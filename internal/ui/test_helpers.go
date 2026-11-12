@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Senasphy/nm-go/internal/ethernet"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 )
@@ -41,6 +42,18 @@ func SetModelData(
 	for i := range m.networks {
 		if m.networks[i].Connected {
 			m.activeNetwork = &m.networks[i]
+			break
+		}
+	}
+}
+
+// SetModelEthernetData populates Ethernet devices on the model for testing
+func SetModelEthernetData(m *Model, ethDevs []ethernet.Device) {
+	m.ethDevices = ethDevs
+	m.activeEth = nil
+	for i := range m.ethDevices {
+		if m.ethDevices[i].IsConnected() {
+			m.activeEth = &m.ethDevices[i]
 			break
 		}
 	}

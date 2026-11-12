@@ -1,6 +1,6 @@
 # nm-go
 
-A fast, lightweight, and modern Terminal User Interface (TUI) for managing Wi-Fi networks on Linux using `iwd` (iNet wireless daemon) and the Charm ecosystem ([Bubble Tea](https://github.com/charmbracelet/bubbletea) + [Lip Gloss](https://github.com/charmbracelet/lipgloss)).
+A fast, lightweight, and modern Terminal User Interface (TUI) for managing Wi-Fi and Ethernet networks on Linux using `iwd` (iNet wireless daemon), `NetworkManager`, and the Charm ecosystem ([Bubble Tea](https://github.com/charmbracelet/bubbletea) + [Lip Gloss](https://github.com/charmbracelet/lipgloss)).
 
 Inspired by the visual design language of [UniSocket](https://github.com/Senasphy/unisocket) and [btop](https://github.com/aristocratos/btop), `nm-go` provides a clean, responsive, keyboard-first workflow with zero clutter.
 
@@ -16,18 +16,19 @@ Inspired by the visual design language of [UniSocket](https://github.com/Senasph
 
 ## Features
 
-- **Native D-Bus Service Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus with cross-service synchronization against existing system profiles to eliminate redundant passphrase prompts.
-- **Tabbed Network Management**: Dedicated views for live access point discovery, stored profile management, and physical adapter diagnostics.
-- **Persistent JSON Configuration**: Automatic saving of chosen themes and preferences to `~/.config/nm-go/config.json`, with support for custom hex colors and user-defined theme palettes.
-- **Keyboard-First Workflow**: Fast in-table navigation, instant SSID search filtering, hardware radio power control, and secure credential entry.
+- **Native D-Bus & Linux Kernel Integration**: Direct, zero-CGO communication with `iwd` over the system D-Bus and native Linux `/sys/class/net` discovery with cross-service synchronization against `NetworkManager` profiles.
+- **Wired Ethernet Management**: Real-time physical carrier detection, link speed and duplex mode inspection, IP/gateway monitoring, and one-key connect/disconnect activation for Ethernet interfaces.
+- **Tabbed Network Management**: Dedicated views for live access point discovery (_Available_), stored profile management (_Saved_), wired adapters (_Ethernet_), and physical hardware/driver diagnostics (_Diagnostics_).
+- **Persistent JSON Configuration**: Automatic saving of chosen themes and preferences to `~/.config/nm-go/config.json`, with support for custom hex colors, user-defined theme palettes, and custom default tabs.
+- **Keyboard-First Workflow**: Fast in-table navigation, instant SSID & interface search filtering, hardware radio power control, and secure credential entry.
 
 ---
 
 ## Requirements
 
-- **Linux** with `iwd` and/or `NetworkManager` active
+- **Linux** with `iwd` and/or `NetworkManager`
 - **Go** 1.21 or later
-- Optional: `iwctl` / `nmcli` for credential provisioning
+- Optional: `nmcli` / `iproute2` for advanced wired profile activation
 
 ---
 
@@ -50,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/Senasphy/nm-go/main/install.sh | IN
 ### 2. Install With Go
 
 ```bash
-go install github.com/Senasphy/nm-go@latest
+go install github.com/Senasphy/nm-go/cmd/nm-go@latest
 ```
 
 ### 3. Install From GitHub Releases
@@ -69,7 +70,7 @@ sudo mv nm-go /usr/local/bin/
 git clone https://github.com/Senasphy/nm-go.git
 cd nm-go
 go mod tidy
-go build -o nm-go .
+go build -o nm-go ./cmd/nm-go
 sudo mv nm-go /usr/local/bin/
 ```
 
@@ -77,21 +78,21 @@ sudo mv nm-go /usr/local/bin/
 
 ## Keyboard Shortcuts
 
-| Key                                                       | Action                                                       |
-| :-------------------------------------------------------- | :----------------------------------------------------------- |
-| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd>                     | Switch tabs (_Available_ / _Saved_ / _Device Info_)          |
-| <kbd>↑</kbd> / <kbd>k</kbd> , <kbd>↓</kbd> / <kbd>j</kbd> | Navigate network list / theme selector                       |
-| <kbd>Enter</kbd> / <kbd>c</kbd>                           | Connect to selected network (direct connect for known/saved) |
-| <kbd>d</kbd>                                              | Disconnect active network                                    |
-| <kbd>s</kbd> / <kbd>r</kbd>                               | Trigger a fresh Wi-Fi scan / refresh                         |
-| <kbd>f</kbd> / <kbd>x</kbd>                               | Forget saved network credentials (with confirmation)         |
-| <kbd>a</kbd>                                              | Toggle auto-connect on saved network                         |
-| <kbd>p</kbd>                                              | Toggle Wi-Fi power (radio on/off)                            |
-| <kbd>/</kbd>                                              | Open search box to filter networks by SSID                   |
-| <kbd>t</kbd>                                              | Toggle side-by-side theme switcher                           |
-| <kbd>?</kbd>                                              | Toggle help & command reference                              |
-| <kbd>Esc</kbd>                                            | Close theme panel / clear search / cancel action             |
-| <kbd>q</kbd> / <kbd>Ctrl+C</kbd>                          | Quit nm-go                                                   |
+| Key                                                       | Action                                                              |
+| :-------------------------------------------------------- | :------------------------------------------------------------------ |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd>                     | Switch tabs (_Available_ / _Saved_ / _Ethernet_ / _Diagnostics_)    |
+| <kbd>↑</kbd> / <kbd>k</kbd> , <kbd>↓</kbd> / <kbd>j</kbd> | Navigate network & interface lists / theme selector                 |
+| <kbd>Enter</kbd> / <kbd>c</kbd>                           | Connect to network / activate wired interface                       |
+| <kbd>d</kbd>                                              | Disconnect active network / wired interface                         |
+| <kbd>s</kbd> / <kbd>r</kbd>                               | Trigger a fresh Wi-Fi scan / refresh network interfaces             |
+| <kbd>f</kbd> / <kbd>x</kbd>                               | Forget saved Wi-Fi network credentials (with confirmation)          |
+| <kbd>a</kbd>                                              | Toggle auto-connect on saved Wi-Fi network                          |
+| <kbd>p</kbd>                                              | Toggle Wi-Fi radio power on/off                                     |
+| <kbd>/</kbd>                                              | Open search box to filter networks and interfaces                   |
+| <kbd>t</kbd>                                              | Toggle side-by-side theme switcher                                  |
+| <kbd>?</kbd>                                              | Toggle help & command reference                                     |
+| <kbd>Esc</kbd>                                            | Close theme panel / clear search / cancel action                    |
+| <kbd>q</kbd> / <kbd>Ctrl+C</kbd>                          | Quit nm-go                                                          |
 
 ---
 
@@ -109,13 +110,13 @@ nm-go --dump-config > ~/.config/nm-go/config.json
 
 ### Configuration Options
 
-| Key                     | Type   | Description                                                     |
-| :---------------------- | :----- | :-------------------------------------------------------------- |
-| `theme`                 | string | Active theme ID (e.g. `"tokyonight"`, `"gruvbox"`, `"dracula"`) |
-| `default_tab`           | string | Initial tab to open (`"available"`, `"saved"`, `"diagnostics"`) |
-| `scan_interval_seconds` | int    | Periodic background discovery interval (default: `15`)          |
-| `colors`                | object | Global hex color overrides applied across themes                |
-| `custom_themes`         | array  | Custom themes declared with specific hex palettes               |
+| Key                     | Type   | Description                                                                     |
+| :---------------------- | :----- | :------------------------------------------------------------------------------ |
+| `theme`                 | string | Active theme ID (e.g. `"tokyonight"`, `"gruvbox"`, `"dracula"`)                 |
+| `default_tab`           | string | Initial tab to open (`"available"`, `"saved"`, `"ethernet"`, `"diagnostics"`)  |
+| `scan_interval_seconds` | int    | Periodic background discovery interval (default: `15`)                          |
+| `colors`                | object | Global hex color overrides applied across themes                                |
+| `custom_themes`         | array  | Custom themes declared with specific hex palettes                               |
 
 ### Example `~/.config/nm-go/config.json`
 
@@ -149,36 +150,9 @@ nm-go --dump-config > ~/.config/nm-go/config.json
 
 ## Contributing
 
-Contributions, bug reports, and feature proposals are welcome.
+Contributions are welcome! Please make sure to run tests and linters before submitting a pull request:
 
-### Reporting Issues
-
-If you encounter unexpected behavior or have a feature suggestion, please open an issue on the [GitHub Issues](https://github.com/Senasphy/nm-go/issues) page. When filing a bug report, please include:
-
-- Operating system distribution and kernel version.
-- Active wireless services (`systemctl status iwd` / `NetworkManager`).
-- Relevant logs or steps to reproduce the issue.
-
-### Submitting Pull Requests
-
-1. **Fork** the repository and create a dedicated branch:
-   ```bash
-   git checkout -b feat/your-feature-name
-   ```
-2. **Make your changes** following idiomatic Go conventions.
-3. **Verify tests and code health**:
-   ```bash
-   go test -v ./...
-   go vet ./...
-   ```
-4. **Commit** with clear, descriptive commit messages:
-   ```bash
-   git commit -m "feat(ui): add network sorting options"
-   ```
-5. **Push** to your fork and submit a Pull Request against `main`.
-
----
-
-## License
-
-MIT © [Senasphy](https://github.com/Senasphy)
+```bash
+go test -v ./...
+go vet ./...
+```

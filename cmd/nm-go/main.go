@@ -7,12 +7,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/Senasphy/nm-go/internal/config"
+	"github.com/Senasphy/nm-go/internal/ethernet"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 	"github.com/Senasphy/nm-go/internal/ui"
 )
 
-const version = "0.3.0"
+const version = "0.4.0"
 
 func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
@@ -23,7 +24,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("nm-go v%s (Wi-Fi TUI for iwd)\n", version)
+		fmt.Printf("nm-go v%s (Wi-Fi & Ethernet Network Manager TUI)\n", version)
 		os.Exit(0)
 	}
 
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	if *showHelp {
-		fmt.Println("nm-go: A clean terminal UI for managing Wi-Fi networks using iwd")
+		fmt.Println("nm-go: A fast, clean terminal UI for managing Wi-Fi and Ethernet networks on Linux")
 		fmt.Println("\nUsage:")
 		fmt.Println("  nm-go [flags]")
 		fmt.Println("\nFlags:")
@@ -80,19 +81,30 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Verify that iwd is running on the system bus
+	// Verify that iwd or Ethernet networking is available
+	var client *iwd.Client
 	if err := iwd.CheckIwdService(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Please ensure iwd is running: sudo systemctl start iwd\n")
-		os.Exit(1)
+		ethClient := ethernet.NewClient()
+		ethDevs, ethErr := ethClient.GetDevices()
+		if ethErr != nil || len(ethDevs) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Please ensure iwd is running: sudo systemctl start iwd\n")
+			os.Exit(1)
+		}
+	} else {
+		c, err := iwd.NewClient()
+		if err != nil {
+			ethClient := ethernet.NewClient()
+			ethDevs, _ := ethClient.GetDevices()
+			if len(ethDevs) == 0 {
+				fmt.Fprintf(os.Stderr, "Failed to connect to iwd: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			client = c
+			defer client.Close()
+		}
 	}
-
-	client, err := iwd.NewClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to iwd: %v\n", err)
-		os.Exit(1)
-	}
-	defer client.Close()
 
 	// Determine configuration file path
 	configPath := *configPathFlag

@@ -1,22 +1,41 @@
 package ui
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/godbus/dbus/v5"
+	"github.com/Senasphy/nm-go/internal/ethernet"
 	"github.com/Senasphy/nm-go/internal/iwd"
 )
 
-func fetchDataCmd(client *iwd.Client, background bool) tea.Cmd {
+func fetchDataCmd(client *iwd.Client, ethClient *ethernet.Client, background bool) tea.Cmd {
 	return func() tea.Msg {
+		var ethDevices []ethernet.Device
+		if ethClient != nil {
+			ethDevices, _ = ethClient.GetDevices()
+		}
+
+		if client == nil {
+			return FetchDataMsg{
+				EthDevices: ethDevices,
+			}
+		}
+
 		devices, err := client.GetDevices()
 		if err != nil {
-			return FetchDataMsg{Err: err}
+			return FetchDataMsg{
+				EthDevices: ethDevices,
+				Err:        err,
+			}
 		}
 
 		if len(devices) == 0 {
-			return FetchDataMsg{Devices: devices}
+			return FetchDataMsg{
+				Devices:    devices,
+				EthDevices: ethDevices,
+			}
 		}
 
 		dev := devices[0]
@@ -36,7 +55,32 @@ func fetchDataCmd(client *iwd.Client, background bool) tea.Cmd {
 			Station:       station,
 			Networks:      networks,
 			KnownNetworks: knownNetworks,
+			EthDevices:    ethDevices,
 		}
+	}
+}
+
+func connectEthCmd(ethClient *ethernet.Client, devName string) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if ethClient != nil {
+			err = ethClient.Connect(devName)
+		} else {
+			err = fmt.Errorf("ethernet client not initialized")
+		}
+		return ConnectEthResultMsg{DevName: devName, Err: err}
+	}
+}
+
+func disconnectEthCmd(ethClient *ethernet.Client, devName string) tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		if ethClient != nil {
+			err = ethClient.Disconnect(devName)
+		} else {
+			err = fmt.Errorf("ethernet client not initialized")
+		}
+		return DisconnectEthResultMsg{DevName: devName, Err: err}
 	}
 }
 

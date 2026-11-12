@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/Senasphy/nm-go/internal/config"
+	"github.com/Senasphy/nm-go/internal/ethernet"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 )
@@ -17,6 +18,7 @@ type TabType int
 const (
 	TabAvailable TabType = iota
 	TabSaved
+	TabEthernet
 	TabDetails
 )
 
@@ -36,10 +38,11 @@ type Notification struct {
 }
 
 type Model struct {
-	client     *iwd.Client
-	err        error
-	width      int
-	height     int
+	client    *iwd.Client
+	ethClient *ethernet.Client
+	err       error
+	width     int
+	height    int
 
 	// Active Theme & Side-by-Side Theme Picker
 	currentTheme     theme.Theme
@@ -47,17 +50,20 @@ type Model struct {
 	themePickerIndex int
 
 	// Data
-	activeTab     TabType
-	devices       []iwd.Device
-	selectedDev   int
-	station       *iwd.Station
-	networks      []iwd.Network
-	knownNetworks []iwd.KnownNetwork
-	activeNetwork *iwd.Network
+	activeTab      TabType
+	devices        []iwd.Device
+	selectedDev    int
+	station        *iwd.Station
+	networks       []iwd.Network
+	knownNetworks  []iwd.KnownNetwork
+	activeNetwork  *iwd.Network
+	ethDevices     []ethernet.Device
+	activeEth      *ethernet.Device
 
 	// Navigation & Selection
 	cursorAvailable int
 	cursorSaved     int
+	cursorEthernet  int
 
 	// Filtering
 	filterInput textinput.Model
@@ -86,7 +92,7 @@ func InitialModel(client *iwd.Client, th theme.Theme, cfg *config.Config, config
 	s.Spinner = spinner.Dot
 
 	fi := textinput.New()
-	fi.Placeholder = "Type to filter SSIDs..."
+	fi.Placeholder = "Type to filter SSIDs / interfaces..."
 	fi.CharLimit = 32
 	fi.Width = 30
 
@@ -95,6 +101,8 @@ func InitialModel(client *iwd.Client, th theme.Theme, cfg *config.Config, config
 		switch strings.ToLower(cfg.DefaultTab) {
 		case "saved":
 			initialTab = TabSaved
+		case "ethernet", "eth", "wired":
+			initialTab = TabEthernet
 		case "diagnostics", "device", "info", "details":
 			initialTab = TabDetails
 		}
@@ -102,12 +110,14 @@ func InitialModel(client *iwd.Client, th theme.Theme, cfg *config.Config, config
 
 	return Model{
 		client:          client,
+		ethClient:       ethernet.NewClient(),
 		currentTheme:    th,
 		cfg:             cfg,
 		configPath:      configPath,
 		activeTab:       initialTab,
 		cursorAvailable: 0,
 		cursorSaved:     0,
+		cursorEthernet:  0,
 		spinner:         s,
 		filterInput:     fi,
 		modal:           ModalNone,
@@ -117,7 +127,7 @@ func InitialModel(client *iwd.Client, th theme.Theme, cfg *config.Config, config
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		fetchDataCmd(m.client, false),
+		fetchDataCmd(m.client, m.ethClient, false),
 		startPeriodicTick(),
 	)
 }

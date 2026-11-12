@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/Senasphy/nm-go/internal/config"
+	"github.com/Senasphy/nm-go/internal/ethernet"
 	"github.com/Senasphy/nm-go/internal/iwd"
 	"github.com/Senasphy/nm-go/internal/theme"
 )
@@ -18,6 +19,7 @@ type FetchDataMsg struct {
 	Station       *iwd.Station
 	Networks      []iwd.Network
 	KnownNetworks []iwd.KnownNetwork
+	EthDevices    []ethernet.Device
 	Err           error
 }
 
@@ -38,6 +40,15 @@ type PowerResultMsg struct {
 }
 type AutoConnectResultMsg struct{ Err error }
 
+type ConnectEthResultMsg struct {
+	DevName string
+	Err     error
+}
+type DisconnectEthResultMsg struct {
+	DevName string
+	Err     error
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -54,13 +65,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case PeriodicTickMsg:
 		if m.modal == ModalNone && !m.isConnecting {
-			cmds = append(cmds, fetchDataCmd(m.client, true))
+			cmds = append(cmds, fetchDataCmd(m.client, m.ethClient, true))
 		}
 		cmds = append(cmds, startPeriodicTick())
 		return m, tea.Batch(cmds...)
 
 	case FetchDataMsg:
-		if msg.Err != nil {
+		if msg.Err != nil && len(msg.EthDevices) == 0 {
 			m.err = msg.Err
 			m.setNotification(fmt.Sprintf("IWD Error: %v", msg.Err), NotifError, 5*time.Second)
 			return m, nil
@@ -69,13 +80,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.station = msg.Station
 		m.networks = msg.Networks
 		m.knownNetworks = msg.KnownNetworks
+		m.ethDevices = msg.EthDevices
 		m.err = nil
 
-		// Identify active network
+		// Identify active wireless network
 		m.activeNetwork = nil
 		for i := range m.networks {
 			if m.networks[i].Connected {
 				m.activeNetwork = &m.networks[i]
+				break
+			}
+		}
+
+		// Identify active ethernet device
+		m.activeEth = nil
+		for i := range m.ethDevices {
+			if m.ethDevices[i].IsConnected() {
+				m.activeEth = &m.ethDevices[i]
 				break
 			}
 		}
@@ -93,6 +114,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if m.cursorSaved >= len(filteredKnown) {
 			m.cursorSaved = len(filteredKnown) - 1
 		}
+
+		filteredEth := m.getFilteredEthDevices()
+		if len(filteredEth) == 0 {
+			m.cursorEthernet = 0
+		} else if m.cursorEthernet >= len(filteredEth) {
+			m.cursorEthernet = len(filteredEth) - 1
+		}
 		return m, nil
 
 	case ScanFinishedMsg:
@@ -103,7 +131,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification("Scan completed", NotifSuccess, 3*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case ConnectResultMsg:
 		m.isConnecting = false
@@ -113,7 +141,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification(fmt.Sprintf("Connected to %s", msg.SSID), NotifSuccess, 4*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case DisconnectResultMsg:
 		m.busyAction = ""
@@ -122,7 +150,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification("Disconnected", NotifInfo, 3*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
+
+	case ConnectEthResultMsg:
+		m.isConnecting = false
+		m.busyAction = ""
+		if msg.Err != nil {
+			m.setNotification(fmt.Sprintf("Failed to connect %s: %v", msg.DevName, msg.Err), NotifError, 5*time.Second)
+		} else {
+			m.setNotification(fmt.Sprintf("Connected ethernet interface %s", msg.DevName), NotifSuccess, 4*time.Second)
+		}
+		return m, fetchDataCmd(m.client, m.ethClient, false)
+
+	case DisconnectEthResultMsg:
+		m.busyAction = ""
+		if msg.Err != nil {
+			m.setNotification(fmt.Sprintf("Disconnect error for %s: %v", msg.DevName, msg.Err), NotifError, 4*time.Second)
+		} else {
+			m.setNotification(fmt.Sprintf("Disconnected ethernet interface %s", msg.DevName), NotifInfo, 3*time.Second)
+		}
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case ForgetResultMsg:
 		m.busyAction = ""
@@ -131,7 +178,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification(fmt.Sprintf("Forgot network '%s'", msg.Name), NotifSuccess, 3*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case PowerResultMsg:
 		m.busyAction = ""
@@ -144,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.setNotification(fmt.Sprintf("Wi-Fi %s", state), NotifInfo, 3*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case AutoConnectResultMsg:
 		if msg.Err != nil {
@@ -152,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.setNotification("Updated AutoConnect setting", NotifSuccess, 2*time.Second)
 		}
-		return m, fetchDataCmd(m.client, false)
+		return m, fetchDataCmd(m.client, m.ethClient, false)
 
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
@@ -300,12 +347,12 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.Tab):
-		m.activeTab = (m.activeTab + 1) % 3
+		m.activeTab = (m.activeTab + 1) % 4
 		return m, nil
 
 	case key.Matches(msg, keys.BackTab):
 		if m.activeTab == 0 {
-			m.activeTab = 2
+			m.activeTab = 3
 		} else {
 			m.activeTab--
 		}
@@ -325,18 +372,32 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.Scan):
+		m.busyAction = "Refreshing network status..."
+		var scanCmdAction tea.Cmd
 		if len(m.devices) > 0 && m.selectedDev < len(m.devices) {
 			m.isScanning = true
 			m.busyAction = "Scanning for networks..."
-			return m, scanCmd(m.client, m.devices[m.selectedDev].Path)
+			scanCmdAction = scanCmd(m.client, m.devices[m.selectedDev].Path)
+		} else {
+			scanCmdAction = fetchDataCmd(m.client, m.ethClient, false)
 		}
+		return m, scanCmdAction
 
 	case key.Matches(msg, keys.Connect):
 		return m.handleConnect()
 
 	case key.Matches(msg, keys.Disconnect):
+		if m.activeTab == TabEthernet {
+			filtered := m.getFilteredEthDevices()
+			if len(filtered) > 0 && m.cursorEthernet < len(filtered) {
+				selected := filtered[m.cursorEthernet]
+				m.busyAction = fmt.Sprintf("Disconnecting %s...", selected.Name)
+				return m, disconnectEthCmd(m.ethClient, selected.Name)
+			}
+			return m, nil
+		}
 		if len(m.devices) > 0 && m.selectedDev < len(m.devices) {
-			m.busyAction = "Disconnecting..."
+			m.busyAction = "Disconnecting Wi-Fi..."
 			return m, disconnectCmd(m.client, m.devices[m.selectedDev].Path)
 		}
 
@@ -391,6 +452,10 @@ func (m *Model) navigateUp() {
 		if m.cursorSaved > 0 {
 			m.cursorSaved--
 		}
+	case TabEthernet:
+		if m.cursorEthernet > 0 {
+			m.cursorEthernet--
+		}
 	}
 }
 
@@ -406,10 +471,30 @@ func (m *Model) navigateDown() {
 		if m.cursorSaved < len(filtered)-1 {
 			m.cursorSaved++
 		}
+	case TabEthernet:
+		filtered := m.getFilteredEthDevices()
+		if m.cursorEthernet < len(filtered)-1 {
+			m.cursorEthernet++
+		}
 	}
 }
 
 func (m *Model) handleConnect() (tea.Model, tea.Cmd) {
+	if m.activeTab == TabEthernet {
+		filtered := m.getFilteredEthDevices()
+		if len(filtered) == 0 || m.cursorEthernet >= len(filtered) {
+			return m, nil
+		}
+		selected := filtered[m.cursorEthernet]
+		if selected.IsConnected() {
+			m.setNotification(fmt.Sprintf("Already connected to %s", selected.Name), NotifInfo, 3*time.Second)
+			return m, nil
+		}
+		m.isConnecting = true
+		m.busyAction = fmt.Sprintf("Connecting %s...", selected.Name)
+		return m, connectEthCmd(m.ethClient, selected.Name)
+	}
+
 	if m.activeTab == TabAvailable {
 		filtered := m.getFilteredNetworks()
 		if len(filtered) == 0 || m.cursorAvailable >= len(filtered) {
@@ -493,6 +578,24 @@ func (m Model) getFilteredKnownNetworks() []iwd.KnownNetwork {
 	for _, kn := range m.knownNetworks {
 		if strings.Contains(strings.ToLower(kn.Name), filter) {
 			res = append(res, kn)
+		}
+	}
+	return res
+}
+
+func (m Model) getFilteredEthDevices() []ethernet.Device {
+	filter := strings.TrimSpace(strings.ToLower(m.filterInput.Value()))
+	if filter == "" {
+		return m.ethDevices
+	}
+	var res []ethernet.Device
+	for _, d := range m.ethDevices {
+		if strings.Contains(strings.ToLower(d.Name), filter) ||
+			strings.Contains(strings.ToLower(d.Connection), filter) ||
+			strings.Contains(strings.ToLower(d.PrimaryIP()), filter) ||
+			strings.Contains(strings.ToLower(d.MAC), filter) ||
+			strings.Contains(strings.ToLower(d.Driver), filter) {
+			res = append(res, d)
 		}
 	}
 	return res

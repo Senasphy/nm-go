@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -14,6 +15,19 @@ const (
 	minMainHeight = 15
 	themeBoxWidth = 26
 )
+
+func truncateString(s string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
+}
 
 func (m Model) getMainSectionHeight() int {
 	h := minMainHeight
@@ -91,13 +105,22 @@ func (m Model) View() string {
 }
 
 func (m Model) renderHeaderBanner() string {
-	titlePill := m.currentTheme.TitleStyle().Render("nm-go  •  Wireless Network Manager")
+	titlePill := m.currentTheme.TitleStyle().Render("nm-go  •  Network Manager")
 
 	var stateText string
 	if m.isScanning {
 		stateText = m.spinner.View() + " Scanning airwaves..."
 	} else if m.isConnecting {
 		stateText = m.spinner.View() + " " + m.busyAction
+	} else if m.activeEth != nil && m.activeNetwork != nil {
+		pct := m.activeNetwork.SignalPercent()
+		stateText = fmt.Sprintf("Wired: %s  •  Wi-Fi: %s (%d%%)", m.activeEth.Name, m.activeNetwork.Name, pct)
+	} else if m.activeEth != nil {
+		ipPart := ""
+		if ip := m.activeEth.PrimaryIPClean(); ip != "-" {
+			ipPart = " (" + ip + ")"
+		}
+		stateText = fmt.Sprintf("Connected (Wired): %s%s", m.activeEth.Name, ipPart)
 	} else if m.activeNetwork != nil {
 		pct := m.activeNetwork.SignalPercent()
 		stateText = fmt.Sprintf("Connected: %s (%d%%)", m.activeNetwork.Name, pct)
@@ -116,12 +139,14 @@ func (m Model) renderHeaderBanner() string {
 func (m Model) renderTabs() string {
 	availCount := len(m.networks)
 	savedCount := len(m.knownNetworks)
+	ethCount := len(m.ethDevices)
 
 	tab0 := RenderTab(m.currentTheme, fmt.Sprintf("Available (%d)", availCount), m.activeTab == TabAvailable)
 	tab1 := RenderTab(m.currentTheme, fmt.Sprintf("Saved (%d)", savedCount), m.activeTab == TabSaved)
-	tab2 := RenderTab(m.currentTheme, "Device Diagnostics", m.activeTab == TabDetails)
+	tab2 := RenderTab(m.currentTheme, fmt.Sprintf("Ethernet (%d)", ethCount), m.activeTab == TabEthernet)
+	tab3 := RenderTab(m.currentTheme, "Diagnostics", m.activeTab == TabDetails)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, tab0, tab1, tab2) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, tab0, tab1, tab2, tab3) + "\n"
 }
 
 func (m Model) renderMainTable(totalWidth int, height int) string {
@@ -134,6 +159,8 @@ func (m Model) renderMainTable(totalWidth int, height int) string {
 		return tableContainer.Render(m.renderAvailableTab(totalWidth-4, height))
 	case TabSaved:
 		return tableContainer.Render(m.renderSavedTab(totalWidth-4, height))
+	case TabEthernet:
+		return tableContainer.Render(m.renderEthernetTab(totalWidth-4, height))
 	case TabDetails:
 		return tableContainer.Render(m.renderDetailsTab(totalWidth-4, height))
 	default:
@@ -154,6 +181,9 @@ func (m Model) renderAvailableTab(innerW int, height int) string {
 		colWSec = 22
 		colWSig = 28
 		colWStatus = innerW - colWName - colWSec - colWSig - 6
+		if colWStatus < 14 {
+			colWStatus = 14
+		}
 	}
 
 	headerText := fmt.Sprintf("  %-*s %-*s %-*s %-*s",
@@ -202,15 +232,8 @@ func (m Model) renderAvailableTab(innerW int, height int) string {
 			cursor = "▸ "
 		}
 
-		nameStr := net.Name
-		if len(nameStr) > colWName-2 {
-			nameStr = nameStr[:colWName-5] + "..."
-		}
-
-		secStr := net.SecurityLabel()
-		if len(secStr) > colWSec-2 {
-			secStr = secStr[:colWSec-5] + "..."
-		}
+		nameStr := truncateString(net.Name, colWName-2)
+		secStr := truncateString(net.SecurityLabel(), colWSec-2)
 
 		pct := net.SignalPercent()
 		sigMeter := RenderSignalMeter(m.currentTheme, pct, net.SignalDBm())
@@ -255,6 +278,9 @@ func (m Model) renderSavedTab(innerW int, height int) string {
 		colWSec = 22
 		colWAuto = 18
 		colWLast = innerW - colWName - colWSec - colWAuto - 6
+		if colWLast < 16 {
+			colWLast = 16
+		}
 	}
 
 	headerText := fmt.Sprintf("  %-*s %-*s %-*s %-*s",
@@ -303,15 +329,13 @@ func (m Model) renderSavedTab(innerW int, height int) string {
 			cursor = "▸ "
 		}
 
-		nameStr := kn.Name
-		if len(nameStr) > colWName-2 {
-			nameStr = nameStr[:colWName-5] + "..."
-		}
+		nameStr := truncateString(kn.Name, colWName-2)
 
 		secStr := kn.Type
 		if secStr == "psk" {
 			secStr = "WPA2/WPA3 (PSK)"
 		}
+		secStr = truncateString(secStr, colWSec-2)
 
 		autoStr := "No"
 		if kn.AutoConnect {
@@ -340,12 +364,129 @@ func (m Model) renderSavedTab(innerW int, height int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-func (m Model) renderDetailsTab(innerW int, height int) string {
-	if len(m.devices) == 0 {
-		return lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Padding(2, 2).Render("No wireless hardware detected.")
+func (m Model) renderEthernetTab(innerW int, height int) string {
+	devices := m.getFilteredEthDevices()
+
+	colWName := 14
+	colWStatus := 16
+	colWIP := 18
+	colWSpeed := 16
+	colWDetails := 20
+
+	if innerW > 85 {
+		colWName = 16
+		colWStatus = 18
+		colWIP = 20
+		colWSpeed = 18
+		colWDetails = innerW - colWName - colWStatus - colWIP - colWSpeed - 6
+		if colWDetails < 16 {
+			colWDetails = 16
+		}
 	}
 
-	dev := m.devices[m.selectedDev]
+	headerText := fmt.Sprintf("  %-*s %-*s %-*s %-*s %-*s",
+		colWName, "INTERFACE",
+		colWStatus, "STATUS",
+		colWIP, "IP ADDRESS",
+		colWSpeed, "SPEED",
+		colWDetails, "MAC / PROFILE",
+	)
+	header := m.currentTheme.HeaderStyle().Width(innerW).Render(headerText)
+
+	if len(devices) == 0 {
+		emptyMsg := "No Ethernet interfaces detected. Press [s/r] to refresh."
+		if m.filterInput.Value() != "" {
+			emptyMsg = fmt.Sprintf("No Ethernet interfaces matching '%s'. Press [Esc] to clear.", m.filterInput.Value())
+		}
+		emptyBlock := lipgloss.NewStyle().
+			Foreground(m.currentTheme.Muted).
+			Padding(2, 2).
+			Render(emptyMsg)
+		return lipgloss.JoinVertical(lipgloss.Left, header, emptyBlock)
+	}
+
+	maxVisible := height - 1
+	if maxVisible < 5 {
+		maxVisible = 5
+	}
+
+	start := 0
+	if m.cursorEthernet >= maxVisible {
+		start = m.cursorEthernet - maxVisible + 1
+	}
+	end := start + maxVisible
+	if end > len(devices) {
+		end = len(devices)
+	}
+
+	var rows []string
+	rows = append(rows, header)
+
+	for i := start; i < end; i++ {
+		dev := devices[i]
+		isSelected := i == m.cursorEthernet
+
+		cursor := "  "
+		if isSelected {
+			cursor = "▸ "
+		}
+
+		nameStr := truncateString(dev.Name, colWName-2)
+
+		statusText := ""
+		if dev.IsConnected() {
+			statusText = lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Success).Render("✔ Connected")
+		} else if dev.Carrier {
+			statusText = lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Warning).Render("● Link Up")
+		} else if strings.EqualFold(dev.State, "unavailable") {
+			statusText = lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render("○ Unplugged")
+		} else if !dev.IsUp || strings.EqualFold(dev.OperState, "down") {
+			statusText = lipgloss.NewStyle().Foreground(m.currentTheme.Danger).Render("✖ Down")
+		} else {
+			statusText = lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(dev.StatusLabel())
+		}
+
+		ipStr := truncateString(dev.PrimaryIP(), colWIP-2)
+		spdStr := truncateString(dev.FormattedSpeed(), colWSpeed-2)
+
+		detailsStr := dev.Connection
+		if detailsStr == "" {
+			if dev.MAC != "" && dev.Driver != "" {
+				detailsStr = fmt.Sprintf("%s (%s)", dev.MAC, dev.Driver)
+			} else if dev.MAC != "" {
+				detailsStr = dev.MAC
+			} else {
+				detailsStr = "-"
+			}
+		}
+		detailsStr = truncateString(detailsStr, colWDetails-2)
+
+		rowContent := fmt.Sprintf("%s%-*s %-*s %-*s %-*s %s",
+			cursor,
+			colWName-2, nameStr,
+			colWStatus, statusText,
+			colWIP, ipStr,
+			colWSpeed, spdStr,
+			detailsStr,
+		)
+
+		if isSelected {
+			rows = append(rows, m.currentTheme.SelectedRowStyle().Width(innerW).Render(rowContent))
+		} else {
+			rows = append(rows, m.currentTheme.RowStyle().Width(innerW).Render(rowContent))
+		}
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (m Model) renderDetailsTab(innerW int, height int) string {
+	hasWireless := len(m.devices) > 0
+	hasEthernet := len(m.ethDevices) > 0
+
+	if !hasWireless && !hasEthernet {
+		return lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Padding(2, 2).Render("No network hardware detected.")
+	}
 
 	labelStyle := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Width(22)
 	valStyle := lipgloss.NewStyle().Foreground(m.currentTheme.Text)
@@ -354,36 +495,102 @@ func (m Model) renderDetailsTab(innerW int, height int) string {
 		return lipgloss.JoinHorizontal(lipgloss.Top, labelStyle.Render(label), valStyle.Render(val))
 	}
 
-	powerStatus := "Enabled"
-	if !dev.Powered {
-		powerStatus = "Disabled (Radio Off)"
+	var sections []string
+
+	if hasWireless {
+		dev := m.devices[m.selectedDev]
+		powerStatus := "Enabled"
+		if !dev.Powered {
+			powerStatus = "Disabled (Radio Off)"
+		}
+
+		stationState := "Disconnected"
+		if m.station != nil && m.station.State != "" {
+			stationState = m.station.State
+		}
+
+		connectedName := "None"
+		if m.activeNetwork != nil {
+			connectedName = fmt.Sprintf("%s (%4.1f dBm)", m.activeNetwork.Name, m.activeNetwork.SignalDBm())
+		}
+
+		lines := []string{
+			lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("📡 Wireless Hardware Diagnostics"),
+			"",
+			row("Interface Name:", dev.Name),
+			row("MAC Address:", dev.Address),
+			row("Radio Power:", powerStatus),
+			row("Interface Mode:", dev.Mode),
+			row("Station Status:", stationState),
+			row("Connected Network:", connectedName),
+			row("Physical Adapter:", dev.AdapterName),
+			row("Chipset Hardware:", dev.AdapterModel),
+			row("Hardware Vendor:", dev.AdapterVendor),
+		}
+		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left, lines...))
 	}
 
-	stationState := "Disconnected"
-	if m.station != nil && m.station.State != "" {
-		stationState = m.station.State
+	if hasEthernet {
+		ethIdx := m.cursorEthernet
+		if ethIdx >= len(m.ethDevices) {
+			ethIdx = 0
+		}
+		eth := m.ethDevices[ethIdx]
+
+		carrierText := "No (Cable Unplugged)"
+		if eth.Carrier {
+			carrierText = "Yes (Carrier Detected)"
+		}
+
+		speedText := eth.FormattedSpeed()
+		if speedText == "-" {
+			speedText = "Link Down / Unknown"
+		}
+
+		ip4Text := "-"
+		if len(eth.IP4) > 0 {
+			ip4Text = strings.Join(eth.IP4, ", ")
+		}
+
+		ip6Text := "-"
+		if len(eth.IP6) > 0 {
+			ip6Text = strings.Join(eth.IP6, ", ")
+		}
+
+		gwText := "-"
+		if eth.Gateway != "" {
+			gwText = eth.Gateway
+		}
+
+		driverText := "-"
+		if eth.Driver != "" {
+			driverText = eth.Driver
+		}
+
+		connText := "-"
+		if eth.Connection != "" {
+			connText = eth.Connection
+		}
+
+		lines := []string{
+			lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("🔌 Ethernet Hardware Diagnostics (" + eth.Name + ")"),
+			"",
+			row("Interface Name:", eth.Name),
+			row("MAC Address:", eth.MAC),
+			row("Physical Carrier:", carrierText),
+			row("Operational State:", eth.OperState),
+			row("Link Speed & Duplex:", speedText),
+			row("IPv4 Address:", ip4Text),
+			row("IPv6 Address:", ip6Text),
+			row("Default Gateway:", gwText),
+			row("Kernel Driver:", driverText),
+			row("Active Profile:", connText),
+			row("Hardware MTU:", fmt.Sprintf("%d", eth.MTU)),
+		}
+		sections = append(sections, lipgloss.JoinVertical(lipgloss.Left, lines...))
 	}
 
-	connectedName := "None"
-	if m.activeNetwork != nil {
-		connectedName = fmt.Sprintf("%s (%4.1f dBm)", m.activeNetwork.Name, m.activeNetwork.SignalDBm())
-	}
-
-	lines := []string{
-		lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("📡 Hardware & Link Diagnostics"),
-		"",
-		row("Interface Name:", dev.Name),
-		row("MAC Address:", dev.Address),
-		row("Radio Power:", powerStatus),
-		row("Interface Mode:", dev.Mode),
-		row("Station Status:", stationState),
-		row("Connected Network:", connectedName),
-		row("Physical Adapter:", dev.AdapterName),
-		row("Chipset Hardware:", dev.AdapterModel),
-		row("Hardware Vendor:", dev.AdapterVendor),
-	}
-
-	return lipgloss.NewStyle().Padding(1, 2).Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return lipgloss.NewStyle().Padding(1, 2).Render(lipgloss.JoinVertical(lipgloss.Left, strings.Join(sections, "\n\n")))
 }
 
 // renderSideThemePicker renders a narrow, clean side box matching the main table height
@@ -425,10 +632,7 @@ func (m Model) renderSideThemePicker(width int, height int) string {
 			indicator = "✓ "
 		}
 
-		nameStr := t.Name
-		if len(nameStr) > width-8 {
-			nameStr = nameStr[:width-10] + ".."
-		}
+		nameStr := truncateString(t.Name, width-8)
 
 		if i == m.themePickerIndex {
 			items = append(items, cursorStyle.Render(cursor)+selectedStyle.Render(indicator)+cursorStyle.Render(nameStr))
@@ -448,7 +652,7 @@ func (m Model) renderSideThemePicker(width int, height int) string {
 func (m Model) renderSearchBox(totalWidth int) string {
 	card := m.currentTheme.CardStyle().Width(totalWidth - 2)
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Search Networks")
+	title := lipgloss.NewStyle().Bold(true).Foreground(m.currentTheme.Highlight).Render("Search Networks / Interfaces")
 	inputLine := "/ " + m.filterInput.View()
 	hints := lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(
 		"Esc / Ctrl+C: Cancel & Clear  •  Enter: Keep Filter  •  Tab / ↓: Move to Table",
@@ -471,7 +675,7 @@ func (m Model) renderCommandsCard(width int) string {
 		b("↑/↓", "Nav"),
 		b("Enter", "Connect"),
 		b("d", "Disconnect"),
-		b("s", "Scan"),
+		b("s", "Scan/Refresh"),
 		b("f", "Forget"),
 		b("p", "Power"),
 		b("/", "Search"),
@@ -485,6 +689,10 @@ func (m Model) renderCommandsCard(width int) string {
 		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Status).Bold(true).Render("● " + m.notification.Message)
 	} else if m.busyAction != "" {
 		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Warning).Bold(true).Render("● " + m.busyAction)
+	} else if m.activeTab == TabEthernet {
+		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(
+			"Tip: Press [Enter] to connect/up • [d] to disconnect/down • [s/r] to refresh • [t] theme",
+		)
 	} else {
 		statusLine = lipgloss.NewStyle().Foreground(m.currentTheme.Muted).Render(
 			"Tip: Press [t] to toggle theme panel • [Tab] to switch view • [a] autoconnect",

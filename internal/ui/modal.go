@@ -19,59 +19,56 @@ const (
 )
 
 type PasswordModal struct {
-	Network   iwd.Network
-	Input     textinput.Model
-	ShowClear bool
+	Network     iwd.Network
+	Input       textinput.Model
+	ShowPass    bool
+	Err         string
+	borderColor lipgloss.TerminalColor
 }
 
 func NewPasswordModal(net iwd.Network, th theme.Theme) PasswordModal {
 	ti := textinput.New()
-	ti.Placeholder = "Enter passphrase..."
-	ti.Focus()
+	ti.Placeholder = "Enter WPA passphrase..."
 	ti.EchoMode = textinput.EchoPassword
 	ti.EchoCharacter = '•'
+	ti.Focus()
 	ti.CharLimit = 64
 	ti.Width = 36
 
 	return PasswordModal{
-		Network:   net,
-		Input:     ti,
-		ShowClear: false,
+		Network:     net,
+		Input:       ti,
+		ShowPass:    false,
+		borderColor: th.Highlight,
 	}
 }
 
-func (pm *PasswordModal) ToggleEcho() {
-	pm.ShowClear = !pm.ShowClear
-	if pm.ShowClear {
-		pm.Input.EchoMode = textinput.EchoNormal
+func (p *PasswordModal) ToggleEcho() {
+	p.ShowPass = !p.ShowPass
+	if p.ShowPass {
+		p.Input.EchoMode = textinput.EchoNormal
 	} else {
-		pm.Input.EchoMode = textinput.EchoPassword
+		p.Input.EchoMode = textinput.EchoPassword
 	}
 }
 
-func renderPasswordModal(pm PasswordModal, th theme.Theme, width int) string {
-	title := lipgloss.NewStyle().Bold(true).Foreground(th.Highlight).Render(fmt.Sprintf("🔑 Connect to %s", pm.Network.Name))
+func renderPasswordModal(p PasswordModal, th theme.Theme, width int) string {
+	title := lipgloss.NewStyle().Bold(true).Foreground(th.Highlight).Render("🔐  Connect to " + p.Network.Name)
+	securityInfo := lipgloss.NewStyle().Foreground(th.Muted).Render("Security: " + p.Network.SecurityLabel())
 
-	securityInfo := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(th.TitleText).
-		Background(th.Muted).
-		Padding(0, 1).
-		Render(pm.Network.SecurityLabel())
+	inputBox := p.Input.View()
 
-	eyeIcon := "[Ctrl+R] Show"
-	if pm.ShowClear {
-		eyeIcon = "[Ctrl+R] Hide"
+	echoHint := "[Ctrl+R] Show/Hide password"
+	if p.ShowPass {
+		echoHint = "[Ctrl+R] Hide password"
 	}
-
-	hint := lipgloss.NewStyle().Foreground(th.Muted).Render(eyeIcon)
-	inputBox := lipgloss.JoinHorizontal(lipgloss.Center, pm.Input.View(), " ", hint)
-
 	buttons := lipgloss.JoinHorizontal(
 		lipgloss.Top,
-		lipgloss.NewStyle().Bold(true).Foreground(th.Success).Render("[Enter] Connect"),
+		lipgloss.NewStyle().Foreground(th.Highlight).Render("[Enter] Connect"),
 		"    ",
-		lipgloss.NewStyle().Foreground(th.Danger).Render("[Esc] Cancel"),
+		lipgloss.NewStyle().Foreground(th.Muted).Render(echoHint),
+		"    ",
+		lipgloss.NewStyle().Foreground(th.Muted).Render("[Esc] Cancel"),
 	)
 
 	body := lipgloss.JoinVertical(
@@ -126,15 +123,15 @@ func renderHelpModal(th theme.Theme, width int) string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(th.Highlight).Render("📖 Keyboard Shortcuts & Commands")
 
 	keyPairs := [][]string{
-		{"Tab / Shift+Tab", "Switch tabs (Available / Saved / Info)"},
-		{"↑ / k , ↓ / j", "Navigate network list / themes"},
-		{"Enter / c", "Connect to selected network"},
-		{"d", "Disconnect active Wi-Fi network"},
-		{"s / r", "Scan & refresh Wi-Fi networks"},
-		{"f / x", "Forget saved network credentials"},
+		{"Tab / Shift+Tab", "Switch tabs (Available / Saved / Ethernet / Info)"},
+		{"↑ / k , ↓ / j", "Navigate network / interface list / themes"},
+		{"Enter / c", "Connect to network / activate interface"},
+		{"d", "Disconnect active network / interface"},
+		{"s / r", "Scan Wi-Fi & refresh network interfaces"},
+		{"f / x", "Forget saved Wi-Fi network credentials"},
 		{"a", "Toggle auto-connect for saved network"},
 		{"p", "Toggle Wi-Fi radio power on/off"},
-		{"/", "Search & filter networks by SSID"},
+		{"/", "Search & filter networks and interfaces"},
 		{"t", "Toggle side-by-side theme switcher"},
 		{"Esc", "Cancel / close dialog / clear filter"},
 		{"?", "Toggle this help screen"},
@@ -157,5 +154,5 @@ func renderHelpModal(th theme.Theme, width int) string {
 	}
 
 	modalBox := th.ModalStyle().Width(boxWidth).Render(body)
-	return lipgloss.Place(width, 17, lipgloss.Center, lipgloss.Center, modalBox)
+	return lipgloss.Place(width, 18, lipgloss.Center, lipgloss.Center, modalBox)
 }
